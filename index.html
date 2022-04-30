@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  <title>Visual Essays Editor</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/themes/light.css" rel="stylesheet"/>
+  <style>
+    [v-cloak] {display: none}
+    body {margin: 0;}
+    * {box-sizing: border-box;}
+    #app {font-family:Roboto,sans-serif;height:100vh; width:100%;}
+    header {position:fixed; width:100%; min-height:50px; display:flex; align-items:center; gap:16px; padding:6px 18px; background-color:#ccc; z-index:100;}
+    header div:last-child {margin-left: auto;}
+    .logo {height:30px;}
+    .title {font-size:1.5rem; font-weight:bold;}
+    .login ul {list-style-type:none; margin:0; padding:0; overflow:hidden; }
+    .login li {float:left; padding-left: 12px;}
+    main {width:100%; height:100%; padding-top: 60px;}
+    .wrapper {width:100%; height:calc(100% - 120px); display:flex; padding:12px; gap:12px;}
+    .wrapper > * {flex: 1;} /* even width flex columns */
+    .overDropzone {position:absolute; left:0; background:rgba(0,0,0,.1);}
+  </style>
+</head>
+<body>
+
+  <div id="app" @drop.prevent="drop" @dragover.prevent @dragover="overDropzone=true" @dragleave="overDropzone=false" :class="{overDropzone}">
+    
+    <header v-cloak>
+      <a href="/"><img class="logo" src="https://visual-essays.github.io/content/static/images/favicon.svg"></a>
+      <div class="title">Visual Essays Editor</div>
+      <div class="login" data-netlify-identity-menu></div>
+    </header>
+
+    <main>
+      <textarea ref="content"></textarea>
+    </main>
+
+    <ve-footer></ve-footer>
+  
+  </div>
+
+  <script type="module">
+    const script = document.createElement('script')
+    script.type = 'module'
+    script.src = location.hostname == 'localhost'
+      ? 'http://localhost:3333/build/visual-essays.esm.js'
+      : 'https://unpkg.com/visual-essays/dist/visual-essays/visual-essays.esm.js'
+    document.body.appendChild(script)
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" type="text/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/shoelace.js" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>  
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    // jwt-code 
+    (function(factory){typeof define==='function'&&define.amd?define(factory):factory()}((function(){'use strict';var chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";function InvalidCharacterError(message){this.message=message}
+    InvalidCharacterError.prototype=new Error();InvalidCharacterError.prototype.name="InvalidCharacterError";function polyfill(input){var str=String(input).replace(/=+$/,"");if(str.length%4==1){throw new InvalidCharacterError("'atob' failed: The string to be decoded is not correctly encoded.")}
+    for(var bc=0,bs,buffer,idx=0,output="";(buffer=str.charAt(idx++));~buffer&&((bs=bc%4?bs*64+buffer:buffer),bc++%4)?(output+=String.fromCharCode(255&(bs>>((-2*bc)&6)))):0){buffer=chars.indexOf(buffer)}
+    return output}
+    var atob=(typeof window!=="undefined"&&window.atob&&window.atob.bind(window))||polyfill;function b64DecodeUnicode(str){return decodeURIComponent(atob(str).replace(/(.)/g,function(m,p){var code=p.charCodeAt(0).toString(16).toUpperCase();if(code.length<2){code="0"+code}
+    return"%"+code}))}
+    function base64_url_decode(str){var output=str.replace(/-/g,"+").replace(/_/g,"/");switch(output.length%4){case 0:break;case 2:output+="==";break;case 3:output+="=";break;default:throw "Illegal base64url string!"}
+    try{return b64DecodeUnicode(output)}catch(err){return atob(output)}}
+    function InvalidTokenError(message){this.message=message}
+    InvalidTokenError.prototype=new Error();InvalidTokenError.prototype.name="InvalidTokenError";function jwtDecode(token,options){if(typeof token!=="string"){throw new InvalidTokenError("Invalid token specified")}
+    options=options||{};var pos=options.header===!0?0:1;try{return JSON.parse(base64_url_decode(token.split(".")[pos]))}catch(e){throw new InvalidTokenError("Invalid token specified: "+e.message)}}
+    if(window){if(typeof window.define=="function"&&window.define.amd){window.define("jwt_decode",function(){return jwtDecode})}else if(window){window.jwt_decode=jwtDecode}}})))
+  </script>
+
+  <script type="module">
+  import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
+
+  const iiifServer = 'https://iiif.visual-essays.net'
+
+  new Vue({
+    name: 'Visual Essays Editor',
+    el: '#app',
+    data: () => ({
+      essayTitle: '',
+      simplemde: null,
+      overDropzone: false,
+      user: null,
+      annoBase: null,
+      tokenIsRefreshing: false
+    }),
+    computed: {
+      isLoggedIn() { return this.user !== null },
+      authToken() { return this.tokenIsValid() ? this.user.token.access_token : null },
+      userHash() { return sha256(this.user?.email || 'anonymous').slice(0,7) },
+    },
+    async created() {
+      this.initAuth()
+      console.log(`userHash=${this.userHash}`)
+      this.initEditor()
+    },
+    mounted() {},
+    methods: {
+
+      initEditor() {
+        this.simplemde = new SimpleMDE({
+          previewRender: this.previewRender,
+          // initialValue,
+          autosave: {
+            enabled: true,
+            delay: 1000,
+            uniqueId: 'visual-essays'
+          },
+          hideIcons: ['side-by-side', 'fullscreen', 'preview', 'guide']
+        })
+        // this.simplemde.codemirror.options.dragDrop = false
+        // this.simplemde.codemirror.options.allowDropFileTypes = []
+        this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
+        this.simplemde.codemirror.on('change', _.debounce(() => this.saveMarkdown(), 10000))
+        this.essayTitle = localStorage.getItem('essay-title') || 'default'
+        // this.getMarkdown()
+      },
+
+      async getMarkdown() {
+        let essayId = `${this.userHash}/${this.essayTitle}`
+        console.log(`getMarkdown: ${essayId}`)
+        await this.validateToken()
+        let resp = await fetch(`https://api.visual-essays/gcs/${essayId}`, {
+          headers: {Authorization:`Bearer ${this.token?.access_token}`}
+        })
+        let markdown = (await resp.json()).msg
+        this.simplemde.value(markdown || '')
+      },
+
+      initAuth() {
+        netlifyIdentity.on('init', (user) => this.user = user)
+        netlifyIdentity.on('login', user => {
+          this.user = user
+          netlifyIdentity.close()
+        })
+        netlifyIdentity.on('open', (e) => {
+          if (e === 'user') {
+            netlifyIdentity.logout()
+            this.user = null
+            netlifyIdentity.close()
+          }
+        })
+      },
+
+      tokenIsValid(token) {
+        return this.user ? this.user.token.expires_at > Date.now() : false
+      },
+      
+      async validateToken() {
+        let timeRemaining = this.user ? this.user.token.expires_at - Date.now() : 0
+        // console.log(`validateToken: timeRemaining=${timeRemaining} isValid=${timeRemaining > 0}`)
+        if (this.user && timeRemaining < 1 * 60 * 1000) this.refreshToken() // refresh token a minute before expiration
+      },
+
+      refreshToken() {
+        if (!this.tokenIsRefreshing) {
+          this.tokenIsRefreshing = true
+          const formData = new FormData()
+          formData.append('grant_type', 'refresh_token')
+          formData.append('refresh_token', this.user.token.refresh_token)
+          fetch('https://tools.visual-essays.net/.netlify/identity/token', {
+              method : 'POST',
+              body : formData
+          }).then(x=>x.json()).then(newToken => {
+            console.log(newToken)
+            this.user.token.access_token=newToken.access_token
+            this.user.token.refresh_token=newToken.refresh_token
+            this.user.token.expires_at = jwt_decode(newToken.access_token).exp * 1000
+            localStorage.setItem('gotrue.user', JSON.stringify(this.user))
+            console.log('auth token refreshed')
+          })
+          .catch(err => {
+            console.log('Token refresh failed', err, `refresh_token=${this.token.refresh_token}`)
+            netlifyIdentity.logout()
+          })
+          this.tokenIsRefreshing = false
+        }
+      }
+    
+    },
+    watch: {
+      user() { this.validateToken() },
+      essayTitle() {
+        // this.$router.push({path: `/editor/${this.userHash}/${this.essayTitle !== 'default' ? this.essayTitle : ''}`})
+        this.getMarkdown()
+      }
+    }
+  })
+  Vue.config.productionTip = false
+  Vue.config.devtools = true
+
+  function isURL(str) { return /^https*:\/\//.test(str) }
+  </script>
+
+</body>
+</html>
