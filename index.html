@@ -6,9 +6,11 @@
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/themes/light.css" rel="stylesheet"/>
+  <link href="https://visual-essays.github.io/content/static/css/main.css" rel="stylesheet"/>
+  <link href="https://visual-essays.github.io/content/static/css/default-theme.css" rel="stylesheet"/>
   <style>
     [v-cloak] {display: none}
-    body {margin: 0;}
+    body {margin: 0; padding: 0;}
     * {box-sizing: border-box;}
     #app {font-family:Roboto,sans-serif;height:100vh; width:100%;}
     header {position:fixed; width:100%; min-height:50px; display:flex; align-items:center; gap:16px; padding:6px 18px; background-color:#ccc; z-index:100;}
@@ -17,10 +19,17 @@
     .title {font-size:1.5rem; font-weight:bold;}
     .login ul {list-style-type:none; margin:0; padding:0; overflow:hidden; }
     .login li {float:left; padding-left: 12px;}
-    main {width:100%; height:100%; padding-top: 60px;}
+    main {width:100%; height:100%; padding: 60px 12px 0 12px;}
     .wrapper {width:100%; height:calc(100% - 120px); display:flex; padding:12px; gap:12px;}
     .wrapper > * {flex: 1;} /* even width flex columns */
     .overDropzone {position:absolute; left:0; background:rgba(0,0,0,.1);}
+    .toolbar {display:flex; align-items:center;}
+    .essay-title {display:inline-block; padding:2px 6px; border:1px solid gray; width:400px; border-radius:4px;}
+    .essay-list li {display:flex; flex-direction:row; justify-items:start; align-items:center; padding:0; margin:0; list-style:none;}
+    .essay-list li span {cursor:pointer; padding:3px;}
+    .essay-list li span:hover {background-color:#ddd;}
+    .selected {background-color:#ccc;}
+    .CodeMirror-scroll {height: calc(100vh - 260px);}
   </style>
 </head>
 <body>
@@ -34,11 +43,37 @@
     </header>
 
     <main>
+      <div class="toolbar">
+        <div class="essay-title" v-html="essayTitle"></div>
+        <sl-tooltip content="Open Essays File Manager">
+          <sl-icon-button name="folder" label="Essay Folder" @click="openFileManagerDialog" style="font-size:2rem;"></sl-icon-button>
+        </sl-tooltip>
+      </div>
       <textarea ref="content"></textarea>
     </main>
 
     <ve-footer></ve-footer>
   
+    <sl-dialog label="Essays File Manager" class="file-manager-dialog">
+      Essays
+      <ul class="essay-list">
+        <li v-for="essayPath in essayList" :key="essayPath">
+          <span :class="{selected: essayPath === essayTitle}" v-html="essayPath" @click="selectEssay(essayPath)" style="cursor:pointer;"></span>
+          <sl-icon-button name="trash" label="Delete Essay" @click="deleteEssay(essayPath)" style="margin-left: auto;"></sl-icon-button>
+        </li>
+      </ul>
+      <sl-button slot="footer" variant="primary" @click="openNewEssayDialog">New Essay</sl-button>
+      <sl-button slot="footer" variant="primary" @click="closeFileManagerDialog">Close</sl-button>
+    </sl-dialog>
+  
+    <sl-dialog label="New Essay" class="new-essay-dialog">
+      New Essay
+      <sl-input id="newEssayTitle" placeholder="Enter essay name" size="medium" @keyup="essayTitleValidator"></sl-input>
+      <div v-html="newEssayValidationMsg" style="height:1rem;"></div>
+      <sl-button slot="footer" @click="cancelNewEssayDialog">Cancel</sl-button>
+      <sl-button slot="footer" variant="primary" :disabled="newEssayTitleIsValid ? false : true" @click="submitNewEssayDialog">Submit</sl-button>
+    </sl-dialog>
+
   </div>
 
   <script type="module">
@@ -75,29 +110,34 @@
   import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
 
   const iiifServer = 'https://iiif.visual-essays.net'
+  const apiEndpoint = 'https://api.visual-essays.net'
+  const essayTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
 
   new Vue({
     name: 'Visual Essays Editor',
     el: '#app',
     data: () => ({
       essayTitle: '',
+      essayList: [],
       simplemde: null,
       overDropzone: false,
       user: null,
       annoBase: null,
-      tokenIsRefreshing: false
+      tokenIsRefreshing: false,
+      newEssayTitleIsValid: false,
+      newEssayValidationMsg: ''
     }),
     computed: {
       isLoggedIn() { return this.user !== null },
       authToken() { return this.tokenIsValid() ? this.user.token.access_token : null },
-      userHash() { return sha256(this.user?.email || 'anonymous').slice(0,7) },
+      userHash() { return this.user && sha256(this.user?.email).slice(0,7) },
     },
     async created() {
       this.initAuth()
-      console.log(`userHash=${this.userHash}`)
+    },
+    mounted() {
       this.initEditor()
     },
-    mounted() {},
     methods: {
 
       initEditor() {
@@ -109,7 +149,8 @@
             delay: 1000,
             uniqueId: 'visual-essays'
           },
-          hideIcons: ['side-by-side', 'fullscreen', 'preview', 'guide']
+          // hideIcons: ['side-by-side', 'fullscreen', 'preview', 'guide']
+          hideIcons: ['side-by-side', 'fullscreen', 'guide']
         })
         // this.simplemde.codemirror.options.dragDrop = false
         // this.simplemde.codemirror.options.allowDropFileTypes = []
@@ -119,19 +160,164 @@
         // this.getMarkdown()
       },
 
+      openFileManagerDialog() {
+        this.getEssayList()
+        document.querySelector('.file-manager-dialog').show()
+      },
+
+      closeFileManagerDialog() {
+        document.querySelector('.file-manager-dialog').hide()
+      },
+
+      openNewEssayDialog() {
+        document.querySelector('.new-essay-dialog').show()
+      },
+
+      cancelNewEssayDialog() {
+        document.querySelector('.new-essay-dialog').hide()
+      },
+
+      submitNewEssayDialog() {
+        let input = document.getElementById('newEssayTitle')
+        this.createEssay(input.value)
+        input.value = ''
+        document.querySelector('.new-essay-dialog').hide()
+      },
+
+      getEssayList() {
+        fetch(`${apiEndpoint}/gcs/${this.userHash}/`, {
+          headers: {Authorization:`Bearer ${this.token?.access_token}`}
+        }).then(resp => resp.json())
+        .then(essayList => this.essayList = essayList.map(path => path.split('/').slice(1).join('/')))
+      },
+
+      createEssay(essay) {
+        let essayId = `${this.userHash}/${essay}`
+        console.log('createEssay', essayId)
+        fetch(`${apiEndpoint}/gcs/${essayId}/`, {
+          method: 'POST',
+          headers: {Authorization:`Bearer ${this.token?.access_token}`},
+          body: `# ${essay}` })
+        .then(resp => resp.json())
+        .then(resp => {
+          let essayList = [...this.essayList]
+          essayList.push(essay)
+          essayList.sort()
+          this.essayList = essayList
+        })
+      },
+
+      deleteEssay(essay) {
+        console.log('deleteEssay', essay)
+        let essayId = `${this.userHash}/${this.essay}`
+        fetch(`${apiEndpoint}/gcs/${essayId}/`, {
+          method: 'DELETE',
+          headers: {Authorization:`Bearer ${this.token?.access_token}`},
+          body: `# ${essay}` })
+        .then(resp => resp.json())
+        .then(resp => this.essayList = this.essayList.filter(entry => entry !== essay ))
+      },
+
+      selectEssay(selected) {
+        console.log('selectEssay', selected)
+        this.essayTitle = selected
+        this.closeFileManagerDialog()
+      },
+
+      essayTitleValidator: _.throttle(function () {
+        let essayTitle = document.getElementById('newEssayTitle').value
+        this.newEssayTitleIsValid = essayTitleRegex.test(essayTitle)
+        // console.log('essayTitleValidator', essayTitle, this.newEssayTitleIsValid)
+        this.newEssayValidationMsg = this.newEssayTitleIsValid ? ' ' : 'Invalid essay title'
+      }, 100),
+
       async getMarkdown() {
         let essayId = `${this.userHash}/${this.essayTitle}`
-        console.log(`getMarkdown: ${essayId}`)
         await this.validateToken()
-        let resp = await fetch(`https://api.visual-essays/gcs/${essayId}`, {
+        let resp = await fetch(`${apiEndpoint}/gcs/${essayId}/`, {
           headers: {Authorization:`Bearer ${this.token?.access_token}`}
         })
-        let markdown = (await resp.json()).msg
+        let markdown = await resp.text()
         this.simplemde.value(markdown || '')
       },
 
+      async saveMarkdown() {
+        if (this.essayTitle) {
+          let markdown = this.simplemde.value()
+          let essayId = `${this.userHash}/${this.essayTitle}`
+          localStorage.setItem('essay-title', this.essayTitle)
+          console.log(`saveMarkdown: essayId=${essayId} markdown_size=${markdown.length}`)
+          await this.validateToken()
+          fetch(`${apiEndpoint}/gcs/${essayId}/`, {
+            method: 'POST',
+            headers: {Authorization:`Bearer ${this.token?.access_token}`},
+            body: markdown })
+          .then(resp => resp.json())
+        }
+      },
+
+      previewRender(markdown, preview) {
+        console.log('previewRender')
+        fetch(`${apiEndpoint}/html/`, {method: 'POST', body: markdown})
+          .then(resp => resp.text())
+          .then(html => {
+            let el = new DOMParser().parseFromString(html, 'text/html').children[0].children[1]
+            console.log(el)
+            preview.innerHTML = el.querySelector('main')?.outerHTML
+          })
+        return ''
+      },
+
+      insertAtCursor(pos, text) {
+        let priorLine = this.simplemde.codemirror.getRange({line:pos.line-2, char:0}, pos).trim().split(/\s/)
+        if (priorLine.length > 0 && priorLine[0] === '.ve-image') {
+          let merged = '.ve-image\n'
+          merged += `    - ${priorLine.slice(1).join(' ')}\n`
+          merged += `    - ${text.split(/\s/).slice(1).join(' ')}\n`
+
+          this.simplemde.codemirror.setSelection({line:pos.line-1,ch:0}, {line:pos.line+1})
+          this.simplemde.codemirror.replaceSelection(merged)
+        } else {
+          pos.ch = 0
+          this.simplemde.codemirror.setSelection(pos, pos)
+          this.simplemde.codemirror.replaceSelection(text)
+        }
+      },
+
+      async getManifestUrl(imageUrl) {
+        let resp = await fetch(`https://iiif.visual-essays.net/?url=${encodeURIComponent(imageUrl)}`)
+        return await resp.text()
+      },
+
+      drop(e) {
+        let cursorPos = this.simplemde.codemirror.coordsChar({left:e.pageX, top:e.pageY})
+        let inputText = ''
+        if (e.dataTransfer) inputText = decodeURI(e.dataTransfer.getData('Text') || e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list'))
+        console.log('drop', e, inputText)
+        if (inputText && isURL(inputText)) {
+          let url = inputText
+          let parsed = new URL(url)
+          console.log(parsed)
+          let manifestUrl = parsed.searchParams.get('manifest')
+          if (manifestUrl) {
+            let imageId = manifestUrl.indexOf('iiif.visual-essays.net') > 0 && manifestUrl.indexOf('manifest.json') > 0
+              ? manifestUrl.split('/').slice(-2,-1).pop()
+              : manifestUrl
+              this.insertAtCursor(cursorPos, `.ve-image ${decodeURIComponent(imageId)}\n`)
+          } else {
+            this.getManifestUrl(url).then((manifestUrl) => {
+              let imageId = manifestUrl.split('/').slice(3,-1).join('/')
+              this.insertAtCursor(cursorPos, `.ve-image ${decodeURIComponent(imageId)}\n`)
+            })
+          }
+        }
+      },
+
       initAuth() {
-        netlifyIdentity.on('init', (user) => this.user = user)
+        netlifyIdentity.on('init', (user) => {
+          console.log('init', user)
+          this.user = user
+        })
         netlifyIdentity.on('login', user => {
           this.user = user
           netlifyIdentity.close()
@@ -182,10 +368,18 @@
     
     },
     watch: {
-      user() { this.validateToken() },
+      user() {
+        console.log('user', this.user)
+        this.validateToken()
+        if (this.user) this.getMarkdown()
+      },
+      userHash() {
+        console.log('userHash', this.userHash)
+      },
       essayTitle() {
+        console.log(`essayTitle=${this.essayTitle}`)
         // this.$router.push({path: `/editor/${this.userHash}/${this.essayTitle !== 'default' ? this.essayTitle : ''}`})
-        this.getMarkdown()
+        if (this.user) this.getMarkdown()
       }
     }
   })
