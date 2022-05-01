@@ -19,7 +19,7 @@
     .title {font-size:1.5rem; font-weight:bold;}
     .login ul {list-style-type:none; margin:0; padding:0; overflow:hidden; }
     .login li {float:left; padding-left: 12px;}
-    main {width:100%; height:100%; padding: 60px 12px 0 12px;}
+    .main {width:100%; height:100%; padding: 60px 12px 0 12px;}
     .wrapper {width:100%; height:calc(100% - 120px); display:flex; padding:12px; gap:12px;}
     .wrapper > * {flex: 1;} /* even width flex columns */
     .overDropzone {position:absolute; left:0; background:rgba(0,0,0,.1);}
@@ -32,6 +32,7 @@
     .selected {background-color:#ccc;}
     .CodeMirror-scroll {height: calc(100vh - 260px);}
     .push {margin-left:auto;}
+    .netlify-identity-user-details{display:none;}
   </style>
 </head>
 <body>
@@ -44,7 +45,7 @@
       <div class="login" data-netlify-identity-menu></div>
     </header>
 
-    <main v-cloak>
+    <div v-cloak v-if="isLoggedIn" class="main">
       <div class="toolbar">
         <div class="essay-title" v-html="essayTitle"></div>
         <div>
@@ -54,7 +55,7 @@
         </div>
         <div class="push">
           <sl-tooltip content="Preview Essay">
-            <sl-icon-button name="eye" label="Preview Essay" @click="preview"></sl-icon-button>
+            <sl-icon-button name="eye" label="Toggle Preview" @click="togglePreview"></sl-icon-button>
           </sl-tooltip>
         </div>
         <div>
@@ -74,7 +75,11 @@
         </div>
       </div>
       <textarea ref="content"></textarea>
-    </main>
+    </div>
+
+    <div v-cloak v-else class="main">
+      Please login to use the editor
+    </div>
 
     <ve-footer></ve-footer>
   
@@ -152,7 +157,7 @@
       newEssayValidationMsg: ''
     }),
     computed: {
-      isLoggedIn() { return this.user !== null },
+      isLoggedIn() { return this.user !== null && this.tokenIsValid() },
       authToken() { return this.tokenIsValid() ? this.user.token.access_token : null },
       userHash() { return this.user && sha256(this.user?.email).slice(0,7) },
       essayLink() { return this.essayTitle === 'default'
@@ -160,12 +165,8 @@
         : `https://visual-essays.net/${this.userHash}/${this.essayTitle}/`
       }
     },
-    async created() {
-      this.initAuth()
-    },
-    mounted() {
-      this.initEditor()
-    },
+    async created() {this.initAuth()},
+    mounted() {},
     methods: {
 
       initEditor() {
@@ -184,7 +185,6 @@
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         this.simplemde.codemirror.on('change', _.debounce(() => this.saveMarkdown(), 10000))
         this.essayTitle = localStorage.getItem('essay-title') || 'default'
-        // this.getMarkdown()
       },
 
       copyLink() {
@@ -195,7 +195,7 @@
         window.open(this.essayLink, '_blank')
       },
 
-      preview() {
+      togglePreview() {
         SimpleMDE.togglePreview(this.simplemde)
       },
 
@@ -272,6 +272,7 @@
 
       async getMarkdown() {
         let essayId = `${this.userHash}/${this.essayTitle}`
+        console.log(`getMarkdown=${essayId}`)
         await this.validateToken()
         let resp = await fetch(`${apiEndpoint}/gcs/${essayId}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
@@ -281,7 +282,7 @@
       },
 
       async saveMarkdown() {
-        if (this.essayTitle) {
+        if (this.essayTitle && this.isLoggedIn) {
           let markdown = this.simplemde.value()
           let essayId = `${this.userHash}/${this.essayTitle}`
           localStorage.setItem('essay-title', this.essayTitle)
@@ -358,6 +359,8 @@
             netlifyIdentity.logout()
             this.user = null
             netlifyIdentity.close()
+            this.simplemde.toTextArea()
+            this.simplemde = null
           }
         })
       },
@@ -398,12 +401,18 @@
     
     },
     watch: {
+      isLoggedIn(isLoggedIn) {
+        if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
+      },
       user() {
         this.validateToken()
-        if (this.user) this.getMarkdown()
+        if (this.user && this.essayTitle) this.getMarkdown()
       },
       essayTitle() {
-        if (this.user) this.getMarkdown()
+        if (this.user && this.essayTitle) {
+          this.getMarkdown()
+          if (this.simplemde.isPreviewActive()) this.togglePreview()
+        }
       }
     }
   })
