@@ -6,8 +6,6 @@
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/themes/light.css" rel="stylesheet"/>
-  <link href="https://visual-essays.github.io/content/static/css/main.css" rel="stylesheet"/>
-  <link href="https://visual-essays.github.io/content/static/css/default-theme.css" rel="stylesheet"/>
   <style>
     [v-cloak] {display: none}
     body {margin: 0; padding: 0;}
@@ -106,12 +104,22 @@
   </div>
 
   <script type="module">
-    const script = document.createElement('script')
-    script.type = 'module'
-    script.src = location.hostname == 'localhost'
-      ? 'http://localhost:3333/build/visual-essays.esm.js'
-      : 'https://unpkg.com/visual-essays/dist/visual-essays/visual-essays.esm.js'
-    document.body.appendChild(script)
+    function addScript(src) {
+      const script = document.createElement('script')
+      script.type = 'module'
+      script.src = src
+      document.body.appendChild(script)
+    }
+    function addStylesheet(href) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
+    let isDev = location.hostname == 'localhost'
+    addStylesheet(`${isDev ? '' : 'https://visual-essays.github.io/content/static/css'}/main.css`)
+    addStylesheet(`${isDev ? '' : 'https://visual-essays.github.io/content/static/css'}/default-theme.css`)
+    addScript(`${isDev ? 'http://localhost:3333/build' : 'https://unpkg.com/visual-essays/dist/visual-essays'}/visual-essays.esm.js`)
   </script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" type="text/javascript"></script>
@@ -366,7 +374,7 @@
       },
 
       tokenIsValid(token) {
-        return this.user ? this.user.token.expires_at > Date.now() : false
+        return this.user && this.user.token ? this.user.token.expires_at > Date.now() : false
       },
       
       async validateToken() {
@@ -381,7 +389,7 @@
           const formData = new FormData()
           formData.append('grant_type', 'refresh_token')
           formData.append('refresh_token', this.user.token.refresh_token)
-          fetch('https://tools.visual-essays.net/.netlify/identity/token', {
+          fetch('https://editor.visual-essays.net/.netlify/identity/token', {
               method : 'POST',
               body : formData
           }).then(x=>x.json()).then(newToken => {
@@ -392,7 +400,7 @@
             console.log('auth token refreshed')
           })
           .catch(err => {
-            console.log('Token refresh failed', err, `refresh_token=${this.token.refresh_token}`)
+            console.log('Token refresh failed', err, `refresh_token=${this.user.token.refresh_token}`)
             netlifyIdentity.logout()
           })
           this.tokenIsRefreshing = false
