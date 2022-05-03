@@ -186,16 +186,14 @@
           // initialValue,
           autosave: {
             enabled: true,
-            delay: 1000,
-            uniqueId: 'visual-essays'
+            delay: 10000,
+            uniqueId: this.userHash
           },
           hideIcons: ['side-by-side', 'fullscreen', 'preview', 'guide']
         })
-        // this.simplemde.codemirror.options.dragDrop = false
-        // this.simplemde.codemirror.options.allowDropFileTypes = []
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         this.simplemde.codemirror.on('change', _.debounce(() => this.saveMarkdown(), 10000))
-        this.essayTitle = localStorage.getItem('essay-title') || 'default'
+        this.essayTitle = localStorage.getItem(`${this.userHash}/essay-title`) || 'default'
       },
 
       copyLink() {
@@ -283,7 +281,7 @@
 
       async getMarkdown() {
         let essayId = `${this.userHash}/${this.essayTitle}`
-        console.log(`getMarkdown=${essayId}`)
+        // console.log(`getMarkdown=${essayId}`)
         await this.validateToken()
         let resp = await fetch(`${apiEndpoint}/gcs/${essayId}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
@@ -296,7 +294,7 @@
         if (this.essayTitle && this.isLoggedIn) {
           let markdown = this.simplemde.value()
           let essayId = `${this.userHash}/${this.essayTitle}`
-          localStorage.setItem('essay-title', this.essayTitle)
+          localStorage.setItem(`${this.userHash}/essay-title`, this.essayTitle)
           // console.log(`saveMarkdown: essayId=${essayId} markdown_size=${markdown.length}`)
           await this.validateToken()
           fetch(`${apiEndpoint}/gcs/${essayId}/`, {
@@ -367,11 +365,13 @@
         })
         netlifyIdentity.on('open', (e) => {
           if (e === 'user') {
-            netlifyIdentity.logout()
-            this.user = null
-            netlifyIdentity.close()
-            this.simplemde.toTextArea()
-            this.simplemde = null
+            this.saveMarkdown().then(resp => {
+              netlifyIdentity.logout()
+              this.user = null
+              netlifyIdentity.close()
+              this.simplemde.toTextArea()
+              this.simplemde = null
+            })
           }
         })
       },
