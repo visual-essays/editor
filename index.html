@@ -176,7 +176,13 @@
         : `https://visual-essays.net/${this.userHash}/${this.essayTitle}/`
       }
     },
-    async created() {this.initAuth()},
+    async created() {
+      this.initAuth()
+      let pathElems = location.pathname.split('/').filter(pe => pe)
+      console.log(location.pathElems)
+      if (pathElems.length > 1) this.essayTitle = pathElems.slice(1).join('/')
+
+    },
     mounted() {},
     methods: {
 
@@ -193,7 +199,7 @@
         })
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         this.simplemde.codemirror.on('change', _.debounce(() => this.saveMarkdown(), 10000))
-        this.essayTitle = localStorage.getItem(`${this.userHash}/essay-title`) || 'default'
+        this.essayTitle = this.essayTitle || localStorage.getItem(`${this.userHash}/essay-title`) || 'default'
       },
 
       copyLink() {
@@ -419,8 +425,10 @@
         this.validateToken()
         if (this.user && this.essayTitle) this.getMarkdown()
       },
-      essayTitle() {
-        if (this.user && this.essayTitle) {
+      essayTitle(essayTitle, prior) {
+        if (this.user && essayTitle) {
+          console.log(`path=${this.userHash}/${essayTitle}`)
+          if (prior) location.pathname = `/${this.userHash}/${essayTitle}`
           this.getMarkdown()
           if (this.simplemde.isPreviewActive()) this.togglePreview()
         }
