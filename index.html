@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/themes/light.css" rel="stylesheet"/>
+  <link href="https://use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet">
   <style>
     [v-cloak] {display: none}
     body {margin: 0; padding: 0;}
@@ -327,7 +328,7 @@
           let merged = '.ve-image\n'
           merged += `    - ${priorLine.slice(1).join(' ')}\n`
           merged += `    - ${text.split(/\s/).slice(1).join(' ')}\n`
-          this.simplemde.codemirror.setSelection({line:pos.line-1,ch:0}, {line:pos.line+1})
+          this.simplemde.codemirror.setSelection({line:pos.line-1,ch:0}, {line:pos.line})
           this.simplemde.codemirror.replaceSelection(merged)
         } else {
           pos.ch = 0
