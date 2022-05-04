@@ -4,7 +4,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
   <link href="https://visual-essays.github.io/content/static/images/favicon.svg" rel="icon" type="image/svg+xml"/>
   <link href="https://visual-essays.github.io/content/static/images/favicon.png" rel="icon" type="image/png"/>
-
   <title>Visual Essays Editor</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css" rel="stylesheet">
@@ -131,7 +130,7 @@
   <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
-    // jwt-code 
+    // jwt-decode 
     (function(factory){typeof define==='function'&&define.amd?define(factory):factory()}((function(){'use strict';var chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";function InvalidCharacterError(message){this.message=message}
     InvalidCharacterError.prototype=new Error();InvalidCharacterError.prototype.name="InvalidCharacterError";function polyfill(input){var str=String(input).replace(/=+$/,"");if(str.length%4==1){throw new InvalidCharacterError("'atob' failed: The string to be decoded is not correctly encoded.")}
     for(var bc=0,bs,buffer,idx=0,output="";(buffer=str.charAt(idx++));~buffer&&((bs=bc%4?bs*64+buffer:buffer),bc++%4)?(output+=String.fromCharCode(255&(bs>>((-2*bc)&6)))):0){buffer=chars.indexOf(buffer)}
@@ -316,6 +315,7 @@
           .then(resp => resp.text())
           .then(html => {
             let el = new DOMParser().parseFromString(html, 'text/html').children[0].children[1]
+            Array.from(el.querySelectorAll('ve-image')).forEach(veImg => veImg.setAttribute('auth-token', this.authToken))
             preview.innerHTML = el.querySelector('main')?.outerHTML
           })
         return ''
@@ -411,6 +411,9 @@
           .catch(err => {
             console.log('Token refresh failed', err, `refresh_token=${this.user.token.refresh_token}`)
             netlifyIdentity.logout()
+            this.user = null
+            this.simplemde.toTextArea()
+            this.simplemde = null
           })
           this.tokenIsRefreshing = false
         }
