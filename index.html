@@ -120,8 +120,8 @@
       document.head.appendChild(link)
     }
     let isDev = location.hostname === 'localhost'
-    addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.github.io/content'}/static/css/main.css`)
-    addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.github.io/content'}/static/css/default-theme.css`)
+    addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/css/main.css`)
+    addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/css/default-theme.css`)
     addScript(`${isDev ? 'http://localhost:3333/build' : 'https://unpkg.com/visual-essays/dist/visual-essays'}/visual-essays.esm.js`)
   </script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
