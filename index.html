@@ -391,10 +391,11 @@
       async validateToken() {
         let timeRemaining = this.user ? this.user.token.expires_at - Date.now() : 0
         // console.log(`validateToken: timeRemaining=${timeRemaining} isValid=${timeRemaining > 0}`)
-        if (this.user && timeRemaining < 1 * 60 * 1000) this.refreshToken() // refresh token a minute before expiration
+        if (this.user && timeRemaining < 300 * 1000) this.refreshToken() // refresh token before expiration
       },
 
       refreshToken() {
+        // console.log(`refreshToken: tokenIsRefreshing=${this.tokenIsRefreshing}`)
         if (!this.tokenIsRefreshing) {
           this.tokenIsRefreshing = true
           const formData = new FormData()
@@ -424,6 +425,7 @@
     },
     watch: {
       isLoggedIn(isLoggedIn) {
+        console.log(`isLoggedIn=${isLoggedIn} location=${location.pathname}`)
         if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
       },
       user() {
