@@ -170,7 +170,7 @@
     computed: {
       isLoggedIn() { return this.user !== null && this.tokenIsValid() },
       authToken() { return this.tokenIsValid() ? this.user.token.access_token : null },
-      userHash() { return this.user && sha256(this.user?.email).slice(0,7) },
+      userHash() { return this.user && this.hashStr(this.user?.email.toLowerCase()) },
       isDev() { return location.hostname === 'localhost' },
       essayLink() { return this.essayTitle === 'default'
         ? `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash}/`
@@ -180,13 +180,12 @@
     async created() {
       this.initAuth()
       let pathElems = location.pathname.split('/').filter(pe => pe)
-      console.log(location.pathElems)
       if (pathElems.length > 1) this.essayTitle = pathElems.slice(1).join('/')
 
     },
     mounted() {},
     methods: {
-
+      hashStr(s) { return sha256(s) },
       initEditor() {
         this.simplemde = new SimpleMDE({
           previewRender: this.previewRender,
@@ -368,17 +367,16 @@
       initAuth() {
         netlifyIdentity.on('init', (user) => this.user = user)
         netlifyIdentity.on('login', user => {
+          let path = `/${this.hashStr(user.email.toLowerCase())}/${this.essayTitle}`
+          let locationPath = `/${location.pathname.split('/').filter(pe => pe).join('/')}`
+          if (locationPath === '/' || path.indexOf(locationPath) !== 0) location.pathname = path
           this.user = user
           netlifyIdentity.close()
         })
         netlifyIdentity.on('open', (e) => {
           if (e === 'user') {
             this.saveMarkdown().then(resp => {
-              netlifyIdentity.logout()
-              this.user = null
-              netlifyIdentity.close()
-              this.simplemde.toTextArea()
-              this.simplemde = null
+              this.logout()
             })
           }
         })
@@ -413,19 +411,26 @@
           })
           .catch(err => {
             console.log('Token refresh failed', err, `refresh_token=${this.user.token.refresh_token}`)
-            netlifyIdentity.logout()
-            this.user = null
-            this.simplemde.toTextArea()
-            this.simplemde = null
+            this.logout()
           })
           this.tokenIsRefreshing = false
         }
+      },
+
+      logout() {
+        netlifyIdentity.logout()
+        localStorage.removeItem('gotrue.user')
+        this.user = null
+        netlifyIdentity.close()
+        this.simplemde.toTextArea()
+        this.simplemde = null
+        location.pathname = '/'
       }
     
     },
     watch: {
       isLoggedIn(isLoggedIn) {
-        console.log(`isLoggedIn=${isLoggedIn} location=${location.pathname}`)
+        // console.log(`isLoggedIn=${isLoggedIn} location=${location.pathname}`)
         if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
       },
       user() {
@@ -433,9 +438,11 @@
         if (this.user && this.essayTitle) this.getMarkdown()
       },
       essayTitle(essayTitle, prior) {
-        if (this.user && essayTitle) {
-          console.log(`path=${this.userHash}/${essayTitle}`)
-          if (prior) location.pathname = `/${this.userHash}/${essayTitle}`
+        if (this.userHash && essayTitle) {
+          let path = `/${this.userHash}/${essayTitle}`
+          let locationPath = `/${location.pathname.split('/').filter(pe => pe).join('/')}`
+          // console.log(`path=${this.userHash}/${essayTitle} locationPath=${locationPath} prior=${prior}`)
+          if (locationPath !== path) location.pathname = path
           this.getMarkdown()
           if (this.simplemde.isPreviewActive()) this.togglePreview()
         }
