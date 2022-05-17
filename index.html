@@ -60,6 +60,11 @@
           </sl-tooltip>
         </div>
         <div>
+          <sl-tooltip content="Show Help Documentation">
+            <sl-icon-button name="question-square" label="Show Help Documentation" @click="showHelp"></sl-icon-button>
+          </sl-tooltip>
+        </div>
+        <div>
           <sl-tooltip content="Save Essay">
             <sl-icon-button name="save" label="Save Essay" @click="saveMarkdown"></sl-icon-button>
           </sl-tooltip>
@@ -107,6 +112,11 @@
       <div v-html="newEssayValidationMsg" style="height:1rem;"></div>
       <sl-button slot="footer" @click="cancelNewEssayDialog">Cancel</sl-button>
       <sl-button slot="footer" variant="primary" :disabled="newEssayTitleIsValid ? false : true" @click="submitNewEssayDialog">Submit</sl-button>
+    </sl-dialog>
+
+    <sl-dialog v-cloak ref="helpDialog" class="help-dialog" label="Essay Editor">
+      <div v-html="helpText"><div>
+      <sl-button ref="closeHelpButton" slot="footer" variant="primary">Close</sl-button>
     </sl-dialog>
 
   </div>
@@ -170,7 +180,8 @@
       annoBase: null,
       tokenIsRefreshing: false,
       newEssayTitleIsValid: false,
-      newEssayValidationMsg: ''
+      newEssayValidationMsg: '',
+      helpText: null
     }),
     computed: {
       isLoggedIn() { return this.user !== null && this.tokenIsValid() },
@@ -192,7 +203,10 @@
       if (pathElems.length > 1) this.essayTitle = pathElems.slice(1).join('/')
 
     },
-    mounted() {},
+    mounted() {
+      this.getHelpText()
+      this.$refs.closeHelpButton.addEventListener('click', () => this.$refs.helpDialog.hide())
+    },
     methods: {
       hashStr(s) { return sha256(s) },
       initEditor() {
@@ -227,6 +241,10 @@
         SimpleMDE.togglePreview(this.simplemde)
       },
 
+      showHelp() {
+        this.$refs.helpDialog.show()
+      },
+
       openFileManagerDialog() {
         this.getEssayList()
         document.querySelector('.file-manager-dialog').show()
@@ -250,6 +268,12 @@
         input.value = ''
         document.querySelector('.new-essay-dialog').hide()
       },
+
+      getHelpText() {
+        fetch(`${apiEndpoint}/html/visual-essays/editor/help`).then(resp => resp.text())
+        .then(html => this.helpText = html)
+      }
+      ,
 
       getEssayList() {
         fetch(`${apiEndpoint}/gcs/${this.userHash}/`, {
