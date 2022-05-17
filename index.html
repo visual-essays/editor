@@ -55,7 +55,7 @@
           </sl-tooltip>
         </div>
         <div class="push">
-          <sl-tooltip content="Preview Essay">
+          <sl-tooltip content="Toggle Essay Preview">
             <sl-icon-button name="eye" label="Toggle Preview" @click="togglePreview"></sl-icon-button>
           </sl-tooltip>
         </div>
@@ -66,7 +66,12 @@
         </div>
         <div>
           <sl-tooltip content="Copy Essay Link">
-            <sl-icon-button name="clipboard-check" label="Copy Essay Link" @click="copyLink"></sl-icon-button>
+            <sl-icon-button name="link-45deg" label="Copy Essay Link" @click="copyLink"></sl-icon-button>
+          </sl-tooltip>
+        </div>
+        <div>
+          <sl-tooltip content="Copy Essay Text">
+            <sl-icon-button name="clipboard-check" label="Copy Essay Text" @click="copyText"></sl-icon-button>
           </sl-tooltip>
         </div>
         <div>
@@ -175,6 +180,10 @@
       essayLink() { return this.essayTitle === 'default'
         ? `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash}/`
         : `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash}/${this.essayTitle}/`
+      },
+      essayLinkShort() { return this.essayTitle === 'default'
+        ? `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash.slice(0,8)}/`
+        : `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash.slice(0,8)}/${this.essayTitle}/`
       }
     },
     async created() {
@@ -203,11 +212,15 @@
       },
 
       copyLink() {
-        navigator.clipboard.writeText(this.essayLink)
+        navigator.clipboard.writeText(this.essayLinkShort)
+      },
+
+      copyText() {
+        navigator.clipboard.writeText(this.simplemde.value())
       },
 
       launch() {
-        window.open(this.essayLink, '_blank')
+        window.open(this.essayLinkShort, '_blank')
       },
 
       togglePreview() {
@@ -285,15 +298,20 @@
         this.newEssayValidationMsg = this.newEssayTitleIsValid ? ' ' : 'Invalid essay title'
       }, 100),
 
-      async getMarkdown() {
+      async getMarkdown(createIfNotFound) {
         let essayId = `${this.userHash}/${this.essayTitle}`
-        // console.log(`getMarkdown=${essayId}`)
+        console.log(`getMarkdown=${essayId}`)
         await this.validateToken()
         let resp = await fetch(`${apiEndpoint}/gcs/${essayId}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
         })
-        let markdown = await resp.text()
-        this.simplemde.value(markdown || '')
+        if (resp.status == 200) {
+          let markdown = await resp.text()
+          this.simplemde.value(markdown)
+        } else if (resp.status == 404 && createIfNotFound) {
+          this.simplemde.value(`# ${this.essayTitle.split('/').pop()}`)
+          this.saveMarkdown()
+        }
       },
 
       async saveMarkdown() {
@@ -430,20 +448,21 @@
     },
     watch: {
       isLoggedIn(isLoggedIn) {
-        // console.log(`isLoggedIn=${isLoggedIn} location=${location.pathname}`)
+        console.log(`isLoggedIn=${isLoggedIn} essay=${this.essayTitle}`)
         if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
       },
       user() {
         this.validateToken()
-        if (this.user && this.essayTitle) this.getMarkdown()
+        console.log('user', this.essayTitle)
+        if (this.user && this.essayTitle) this.getMarkdown(true)
       },
       essayTitle(essayTitle, prior) {
         if (this.userHash && essayTitle) {
           let path = `/${this.userHash}/${essayTitle}`
           let locationPath = `/${location.pathname.split('/').filter(pe => pe).join('/')}`
-          // console.log(`path=${this.userHash}/${essayTitle} locationPath=${locationPath} prior=${prior}`)
+          console.log(`path=${this.userHash}/${essayTitle} locationPath=${locationPath} prior=${prior}`)
           if (locationPath !== path) location.pathname = path
-          this.getMarkdown()
+          this.getMarkdown(true)
           if (this.simplemde.isPreviewActive()) this.togglePreview()
         }
       }
