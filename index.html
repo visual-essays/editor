@@ -115,7 +115,7 @@
     </sl-dialog>
 
     <sl-dialog v-cloak ref="helpDialog" class="help-dialog" label="Essay Editor">
-      <div v-html="helpText"><div>
+      <div v-html="helpText"></div>
       <sl-button ref="closeHelpButton" slot="footer" variant="primary">Close</sl-button>
     </sl-dialog>
 
@@ -164,8 +164,8 @@
   <script type="module">
   import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
 
-  const iiifServer = 'https://iiif.visual-essays.net'
-  const apiEndpoint = 'https://api.visual-essays.net'
+  const iiifServer = location.hostname === 'localhost' ? 'http://localhost:8088' : 'https://iiif.visual-essays.net'
+  const apiEndpoint = location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://api.visual-essays.net'
   const essayTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
 
   new Vue({
@@ -270,10 +270,12 @@
       },
 
       getHelpText() {
-        fetch(`${apiEndpoint}/html/visual-essays/editor/help`).then(resp => resp.text())
-        .then(html => this.helpText = html)
-      }
-      ,
+        fetch(`${apiEndpoint}/html/visual-essays/editor/help?prefix=""`).then(resp => resp.text())
+        .then(html => {
+          let tmp = new DOMParser().parseFromString(html, 'text/html').children[0].children[1]
+          this.helpText = tmp.querySelector('main').innerHTML
+        })
+      },
 
       getEssayList() {
         fetch(`${apiEndpoint}/gcs/${this.userHash}/`, {
