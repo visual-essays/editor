@@ -271,7 +271,7 @@
       },
 
       getHelpText() {
-        fetch(`${apiEndpoint}/html/visual-essays/editor/help?prefix=""`).then(resp => resp.text())
+        fetch(`${apiEndpoint}/html/visual-essays/editor/help/?prefix=""`).then(resp => resp.text())
         .then(html => {
           let tmp = new DOMParser().parseFromString(html, 'text/html').children[0].children[1]
           this.helpText = tmp.querySelector('main').innerHTML
