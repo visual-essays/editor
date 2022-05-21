@@ -200,9 +200,10 @@
     },
     async created() {
       this.initAuth()
-      let pathElems = location.pathname.split('/').filter(pe => pe)
-      if (pathElems.length > 1) this.essayTitle = pathElems.slice(1).join('/')
-
+      if (location.hash.length > 1) {
+        let pathElems = location.hash.slice(1).split('/').filter(pe => pe)
+        if (pathElems.length > 1) this.essayTitle = pathElems.slice(1).join('/')
+      }
     },
     mounted() {
       this.getHelpText()
@@ -412,9 +413,7 @@
       initAuth() {
         netlifyIdentity.on('init', (user) => this.user = user)
         netlifyIdentity.on('login', user => {
-          let path = `/${this.hashStr(user.email.toLowerCase())}/${this.essayTitle}`
-          let locationPath = `/${location.pathname.split('/').filter(pe => pe).join('/')}`
-          if (locationPath === '/' || path.indexOf(locationPath) !== 0) location.pathname = path
+          location.hash = `#/${this.hashStr(user.email.toLowerCase())}/${this.essayTitle}`
           this.user = user
           netlifyIdentity.close()
         })
@@ -469,7 +468,7 @@
         netlifyIdentity.close()
         this.simplemde.toTextArea()
         this.simplemde = null
-        location.pathname = '/'
+        location.href = '/'
       }
     
     },
@@ -480,15 +479,11 @@
       },
       user() {
         this.validateToken()
-        console.log('user', this.essayTitle)
         if (this.user && this.essayTitle) this.getMarkdown(true)
       },
       essayTitle(essayTitle, prior) {
         if (this.userHash && essayTitle) {
-          let path = `/${this.userHash}/${essayTitle}`
-          let locationPath = `/${location.pathname.split('/').filter(pe => pe).join('/')}`
-          console.log(`path=${this.userHash}/${essayTitle} locationPath=${locationPath} prior=${prior}`)
-          if (locationPath !== path) location.pathname = path
+          location.hash = `#/${this.userHash}/${essayTitle}`
           this.getMarkdown(true)
           if (this.simplemde.isPreviewActive()) this.togglePreview()
         }
