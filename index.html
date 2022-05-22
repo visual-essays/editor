@@ -22,29 +22,32 @@
     .title {font-size:1.5rem; font-weight:bold;}
     .login ul {list-style-type:none; margin:0; padding:0; overflow:hidden;}
     .login li {float:left; padding-left: 12px;}
-    .main {width:100%; height:100%; padding: 60px 12px 0 12px;}
+    .main {width:100%; height:100%; padding: 60px 12px 0 12px;display:flex;flex-direction: column;}
+    .main.preview {padding-bottom:12px;}
     .wrapper {width:100%; height:calc(100% - 120px); display:flex; padding:12px; gap:12px;}
     .wrapper > * {flex: 1;} /* even width flex columns */
     .overDropzone {position:absolute; left:0; background:rgba(0,0,0,.1);}
     .controls, .essay-selector {display:flex; align-items:center;}
-    .controls {padding-bottom:6px;}
-    .toolbar {margin-left:auto;}
-    .toolbar sl-icon {font-size:1.2rem; margin-top:9px;}
-    .essay-selector sl-icon-button {font-size:1.5rem;}
+    .controls {padding:6px 0; gap:6px;}
+    .buttons {margin-left:auto;}
+    .toolbar.buttons {display:flex;}
+    sl-icon {font-size:1.2rem; margin-top:9px;}
     .essay-title {display:inline-block; padding:2px 6px;}
     .essay-list li {display:flex; flex-direction:row; justify-items:start; align-items:center; padding:0; margin:0; list-style:none;}
     .essay-list li span {cursor:pointer; padding:3px;}
     .essay-list li span:hover {background-color:#ddd;}
     .selected {background-color:#ccc;}
-    .CodeMirror-scroll {height: calc(100vh - 260px);}
+    /*.CodeMirror-scroll {height: calc(100vh - 245px);}*/
     .editor-preview {padding:0;}
     .netlify-identity-user-details{display:none;}
+    .preview .editor-toolbar, .preview .editor-statusbar, .preview .essay-selector, .preview .toolbar {display: none}
     @media (max-width: 760px) {
       .title {font-size: 1rem;}
       .netlify-identity-item {font-size: 1rem;}
-      .controls {flex-direction: column; align-items: start;}
+      .controls {flex-direction:column; align-items:start;}
       .main {padding-top:50px;}
-      .CodeMirror-scroll {height: calc(100vh - 290px);}
+      .controls {flex-direction:column-reverse;}
+      /* .CodeMirror-scroll {height: calc(100vh - 290px);} */
     }
   </style>
 </head>
@@ -58,39 +61,42 @@
       <div class="login" data-netlify-identity-menu></div>
     </header>
 
-    <div v-cloak v-if="isLoggedIn" class="main">
+    <div v-cloak v-if="isLoggedIn" ref="main" class="main">
 
       <div class="controls">
-
+        
         <div class="essay-selector">
           <b>Essay: </b>
           <div class="essay-title" v-html="essayTitle"></div>
-          <sl-tooltip content="Open Essays File Manager">
+          <sl-tooltip content="Open Essays File Manager" :disabled="isMobile">
             <sl-icon-button name="folder" label="Essay Folder" @click="openFileManagerDialog"></sl-icon-button>
           </sl-tooltip>
         </div>
-        
-        <sl-button-group label="Toolbar" class="toolbar">
-          <sl-tooltip content="Toggle Essay Preview">
+
+        <div class="buttons">
+          <sl-button-group label="Toolbar" class="toolbar">
+            <sl-tooltip content="Show Help Documentation" :disabled="isMobile">
+              <sl-button @click="showHelp"><sl-icon name="question-square" label="Show Help Documentation"></sl-icon></sl-button>
+            </sl-tooltip>
+            <sl-tooltip content="Save Essay" :disabled="isMobile">
+              <sl-button @click="saveMarkdown"><sl-icon name="save" label="Save Essay"></sl-icon></sl-button>
+            </sl-tooltip>
+            <sl-tooltip content="Copy Essay Link" :disabled="isMobile">
+              <sl-button @click="copyLink"><sl-icon name="link-45deg" label="Copy Essay Link"></sl-icon></sl-button>
+            </sl-tooltip>
+            <sl-tooltip content="Copy Essay Text" :disabled="isMobile">
+              <sl-button @click="copyText"><sl-icon name="clipboard-check" label="Copy Essay Text"></sl-icon></sl-button>
+            </sl-tooltip>
+            <sl-tooltip content="View Essay" :disabled="isMobile">
+              <sl-button @click="launch"><sl-icon name="box-arrow-up-right" label="View Essay"></sl-icon></sl-button>
+            </sl-tooltip>
+          </sl-button-group>
+          <sl-tooltip content="Toggle Essay Preview" :disabled="isMobile">
             <sl-button @click="togglePreview"><sl-icon name="eye" label="Toggle Essay Preview"></sl-icon></sl-button>
           </sl-tooltip>
-          <sl-tooltip content="Show Help Documentation">
-            <sl-button @click="showHelp"><sl-icon name="question-square" label="Show Help Documentation"></sl-icon></sl-button>
-          </sl-tooltip>
-          <sl-tooltip content="Save Essay">
-            <sl-button @click="saveMarkdown"><sl-icon name="save" label="Save Essay"></sl-icon></sl-button>
-          </sl-tooltip>
-          <sl-tooltip content="Copy Essay Link">
-            <sl-button @click="copyLink"><sl-icon name="link-45deg" label="Copy Essay Link"></sl-icon></sl-button>
-          </sl-tooltip>
-          <sl-tooltip content="Copy Essay Text">
-            <sl-button @click="copyText"><sl-icon name="clipboard-check" label="Copy Essay Text"></sl-icon></sl-button>
-          </sl-tooltip>
-          <sl-tooltip content="View Essay">
-            <sl-button @click="launch"><sl-icon name="box-arrow-up-right" label="View Essay"></sl-icon></sl-button>
-          </sl-tooltip>
-        </sl-button-group>
-      
+        </div>
+
+    
       </div>
 
       <textarea ref="content"></textarea>
@@ -101,7 +107,7 @@
       Please login to use the editor
     </div>
 
-    <ve-footer sticky></ve-footer>
+    <!-- <ve-footer sticky></ve-footer> -->
   
     <sl-dialog v-cloak label="Essays File Manager" class="file-manager-dialog">
       Essays
@@ -190,7 +196,8 @@
       tokenIsRefreshing: false,
       newEssayTitleIsValid: false,
       newEssayValidationMsg: '',
-      helpText: null
+      helpText: null,
+      isPreviewActive: false
     }),
     computed: {
       isLoggedIn() { return this.user !== null && this.tokenIsValid() },
@@ -204,7 +211,8 @@
       essayLinkShort() { return this.essayTitle === 'default'
         ? `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash.slice(0,8)}/`
         : `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash.slice(0,8)}/${this.essayTitle}/`
-      }
+      },
+      isMobile() { return ('ontouchstart' in document.documentElement && /mobi/i.test(navigator.userAgent)) }
     },
     async created() {
       this.initAuth()
@@ -232,6 +240,7 @@
         })
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         this.simplemde.codemirror.on('change', _.debounce(() => this.saveMarkdown(), 10000))
+        this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         this.essayTitle = this.essayTitle || localStorage.getItem(`${this.userHash}/essay-title`) || 'default'
       },
 
@@ -249,6 +258,7 @@
 
       togglePreview() {
         SimpleMDE.togglePreview(this.simplemde)
+        this.isPreviewActive = !this.isPreviewActive
       },
 
       showHelp() {
@@ -495,6 +505,10 @@
           this.getMarkdown(true)
           if (this.simplemde.isPreviewActive()) this.togglePreview()
         }
+      },
+      isPreviewActive(isActive) {
+        if (isActive) this.$refs.main.classList.add('preview')
+        else this.$refs.main.classList.remove('preview')
       }
     }
   })
