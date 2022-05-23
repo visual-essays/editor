@@ -66,14 +66,14 @@
       <div class="controls">
         
         <div v-cloak class="essay-selector">
-          <b>Essay: </b>
+          <span v-cloak><b>Essay: </b></span>
           <div class="essay-title" v-html="essayTitle"></div>
-          <sl-tooltip content="Open Essays File Manager" :disabled="isMobile">
+          <sl-tooltip v-cloak content="Open Essays File Manager" :disabled="isMobile">
             <sl-icon-button name="folder" label="Essay Folder" @click="openFileManagerDialog"></sl-icon-button>
           </sl-tooltip>
         </div>
 
-        <div class="buttons">
+        <div v-cloak class="buttons">
           <sl-button-group label="Toolbar" class="toolbar">
             <sl-tooltip content="Show Help Documentation" :disabled="isMobile">
               <sl-button @click="showHelp"><sl-icon name="question-square" label="Show Help Documentation"></sl-icon></sl-button>
@@ -99,7 +99,7 @@
     
       </div>
 
-      <textarea ref="content"></textarea>
+      <textarea v-cloak ref="content"></textarea>
 
     </div>
 
@@ -255,8 +255,21 @@
         return true
       },
 
-      createNewUserEssays() {
-        console.log('createNewUserEssays')
+      async addEssay(title) {
+        let resp = await fetch('https://raw.githubusercontent.com/visual-essays/content/main/templates/getting-started.md')
+        if (resp.ok) {
+          let markdown = await resp.text()
+          await fetch(`${apiEndpoint}/gcs/${this.userHash}/getting-started/`, {
+            method: 'POST',
+            headers: {Authorization:`Bearer ${this.authToken}`},
+            body: markdown
+          })
+        }
+      },
+
+      async createNewUserEssays() {
+        await this.addEssay('default')
+        await this.addEssay('getting-started')
       },
 
       copyLink() {
@@ -512,10 +525,15 @@
       },
       async user() {
         this.validateToken()
-        let isNewUser = await this.isNewUser()
-        console.log(`user=${this.userHash.slice(0,8)} isNewUser=${isNewUser}`)
-        if (isNewUser) this.createNewUserEssays()
-        if (this.user && this.essayTitle) this.getMarkdown(true)
+        if (this.user) {
+          let isNewUser = await this.isNewUser()
+          console.log(`user=${this.userHash.slice(0,8)} isNewUser=${isNewUser}`)
+          if (isNewUser) {
+            this.createNewUserEssays()
+            this.essayTitle = 'getting-started'
+          }
+          this.getMarkdown(true)
+        }
       },
       essayTitle(essayTitle, prior) {
         if (this.userHash && essayTitle) {
