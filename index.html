@@ -65,7 +65,7 @@
 
       <div class="controls">
         
-        <div class="essay-selector">
+        <div v-cloak class="essay-selector">
           <b>Essay: </b>
           <div class="essay-title" v-html="essayTitle"></div>
           <sl-tooltip content="Open Essays File Manager" :disabled="isMobile">
@@ -242,6 +242,21 @@
         this.simplemde.codemirror.on('change', _.debounce(() => this.saveMarkdown(), 10000))
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         this.essayTitle = this.essayTitle || localStorage.getItem(`${this.userHash}/essay-title`) || 'default'
+      },
+
+      async isNewUser() {
+        let resp = await fetch(`${apiEndpoint}/gcs/${this.userHash}/`)
+        console.log(resp)
+        if (resp.ok) {
+          let essayList = await resp.json()
+          console.log('isNewUser.essayList', essayList)
+          return essayList.length === 0
+        }
+        return true
+      },
+
+      createNewUserEssays() {
+        console.log('createNewUserEssays')
       },
 
       copyLink() {
@@ -430,7 +445,7 @@
 
       initAuth() {
         netlifyIdentity.on('init', (user) => this.user = user)
-        netlifyIdentity.on('login', user => {
+        netlifyIdentity.on('login', async (user) => {
           location.hash = `#/${this.hashStr(user.email.toLowerCase())}/${this.essayTitle}`
           this.user = user
           netlifyIdentity.close()
@@ -495,8 +510,11 @@
         console.log(`isLoggedIn=${isLoggedIn} essay=${this.essayTitle}`)
         if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
       },
-      user() {
+      async user() {
         this.validateToken()
+        let isNewUser = await this.isNewUser()
+        console.log(`user=${this.userHash.slice(0,8)} isNewUser=${isNewUser}`)
+        if (isNewUser) this.createNewUserEssays()
         if (this.user && this.essayTitle) this.getMarkdown(true)
       },
       essayTitle(essayTitle, prior) {
