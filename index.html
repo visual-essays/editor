@@ -129,11 +129,6 @@
       <sl-button slot="footer" variant="primary" :disabled="newEssayTitleIsValid ? false : true" @click="submitNewEssayDialog">Submit</sl-button>
     </sl-dialog>
 
-    <sl-dialog v-cloak ref="helpDialog" class="help-dialog" label="Essay Editor">
-      <div v-html="helpText"></div>
-      <sl-button ref="closeHelpButton" slot="footer" variant="primary">Close</sl-button>
-    </sl-dialog>
-
   </div>
 
   <script type="module">
@@ -149,7 +144,7 @@
       link.href = href
       document.head.appendChild(link)
     }
-    let isDev = location.hostname === 'localhost'
+    const isDev = location.hostname === 'localhost'
     addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/css/main.css`)
     addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/css/default-theme.css`)
     addScript(`${isDev ? 'http://localhost:3333/build' : 'https://unpkg.com/visual-essays/dist/visual-essays'}/visual-essays.esm.js`)
@@ -196,8 +191,8 @@
       tokenIsRefreshing: false,
       newEssayTitleIsValid: false,
       newEssayValidationMsg: '',
-      helpText: null,
-      isPreviewActive: false
+      isPreviewActive: false,
+      externalWindow: null
     }),
     computed: {
       isLoggedIn() { return this.user !== null && this.tokenIsValid() },
@@ -221,10 +216,7 @@
         if (pathElems.length > 1) this.essayTitle = pathElems.slice(1).join('/')
       }
     },
-    mounted() {
-      this.getHelpText()
-      this.$refs.closeHelpButton.addEventListener('click', () => this.$refs.helpDialog.hide())
-    },
+    mounted() {},
     methods: {
       hashStr(s) { return sha256(s) },
       initEditor() {
@@ -246,20 +238,19 @@
 
       async isNewUser() {
         let resp = await fetch(`${apiEndpoint}/gcs/${this.userHash}/`)
-        console.log(resp)
         if (resp.ok) {
           let essayList = await resp.json()
-          console.log('isNewUser.essayList', essayList)
           return essayList.length === 0
         }
         return true
       },
 
       async addEssay(title) {
-        let resp = await fetch('https://raw.githubusercontent.com/visual-essays/content/main/templates/getting-started.md')
+        // let resp = await fetch(`https://raw.githubusercontent.com/visual-essays/content/main/templates${title}`)
+        let resp = fetch(`${apiEndpoint}/markdown/a3b51252/${title}/`)
         if (resp.ok) {
           let markdown = await resp.text()
-          await fetch(`${apiEndpoint}/gcs/${this.userHash}/getting-started/`, {
+          await fetch(`${apiEndpoint}/gcs/${this.userHash}/${title}/`, {
             method: 'POST',
             headers: {Authorization:`Bearer ${this.authToken}`},
             body: markdown
@@ -290,7 +281,13 @@
       },
 
       showHelp() {
-        this.$refs.helpDialog.show()
+        this.openWindow(`https://visual-essays.net${this.isDev ? '/a3b5125/' : '/'}help/`, `toolbar=no,location=no,left=0,top=0,width=800,height=800,scrollbars=no,status=no`)
+      },
+
+      openWindow(url, options) {
+        if (this.externalWindow) { this.externalWindow.close() }
+        if (options === undefined) options = 'toolbar=yes,location=yes,left=0,top=0,width=1000,height=1200,scrollbars=yes,status=yes'
+        this.externalWindow = window.open(url, '_blank', options)
       },
 
       openFileManagerDialog() {
@@ -315,14 +312,6 @@
         this.createEssay(input.value)
         input.value = ''
         document.querySelector('.new-essay-dialog').hide()
-      },
-
-      getHelpText() {
-        fetch(`${apiEndpoint}/html/visual-essays/editor/help/?prefix=""`).then(resp => resp.text())
-        .then(html => {
-          let tmp = new DOMParser().parseFromString(html, 'text/html').children[0].children[1]
-          this.helpText = tmp.querySelector('main').innerHTML
-        })
       },
 
       getEssayList() {
@@ -374,7 +363,6 @@
 
       async getMarkdown(createIfNotFound) {
         let essayId = `${this.userHash}/${this.essayTitle}`
-        console.log(`getMarkdown=${essayId}`)
         await this.validateToken()
         let resp = await fetch(`${apiEndpoint}/gcs/${essayId}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
