@@ -146,7 +146,7 @@
     }
     const isDev = location.hostname === 'localhost'
     addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/css/main.css`)
-    addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/css/default-theme.css`)
+    // addStylesheet(`${isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/css/default-theme.css`)
     addScript(`${isDev ? 'http://localhost:3333/build' : 'https://unpkg.com/visual-essays/dist/visual-essays'}/visual-essays.esm.js`)
   </script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
@@ -154,6 +154,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/shoelace.js" type="module"></script>
   <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>  
   <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/ScrollMagic/2.0.7/ScrollMagic.min.js" type="text/javascript"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     // jwt-decode 
@@ -392,16 +393,39 @@
         }
       },
 
+      stylesheetsForPreview(head) {
+        return Array.from(head.querySelectorAll('link[rel="stylesheet"]'))
+          .map(el => el.href)
+          .filter(href => href.indexOf('shoelace') === -1 && href.indexOf('main.css') === -1)
+          .map(href => href.replace(/5555/,'8080').replace(/editor\.visual-essays\.net/,'visual-essays.net'))
+          .map(href => `<link href="${href}" rel="stylesheet"></link>`).join('\n')
+      },
+
+      jsForPreview() {
+        return `<script src="${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/js/main.js" type="text/javascript"><\/script>`
+      },
+
       previewRender(markdown, preview) {
         fetch(`${apiEndpoint}/html/`, {method: 'POST', body: markdown})
           .then(resp => resp.text())
           .then(html => {
-            let el = new DOMParser().parseFromString(html, 'text/html').children[0].children[1]
-            Array.from(el.querySelectorAll('ve-image')).forEach(veImg => veImg.setAttribute('auth-token', this.authToken))
-            preview.innerHTML = el.querySelector('main')?.outerHTML
+            let [head, body] = new DOMParser().parseFromString(html, 'text/html').children[0].children
+            Array.from(body.querySelectorAll('ve-image')).forEach(veImg => veImg.setAttribute('auth-token', this.authToken))
+            preview.innerHTML = [
+              this.stylesheetsForPreview(head),
+              body.querySelector('main')?.outerHTML,
+              // this.jsForPreview()
+            ].join('\n')
+            let mainJs = document.querySelector('script[src$="/static/js/main.js"]')
+            if (mainJs) mainJs.parentElement.removeChild(mainJs)
+            const script = document.createElement('script')
+            script.type = 'text/javascript'
+            script.src = 'http://localhost:8080/static/js/main.js'
+            preview.appendChild(script)
           })
         return ''
       },
+
 
       insertAtCursor(pos, text) {
         let priorLine = this.simplemde.codemirror.getRange({line:pos.line-2, char:0}, pos).trim().split(/\s/)
