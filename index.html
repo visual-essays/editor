@@ -437,6 +437,7 @@
           this.simplemde.codemirror.setSelection({line:pos.line-1,ch:0}, {line:pos.line})
           this.simplemde.codemirror.replaceSelection(merged)
         } else {
+          console.log(pos)
           pos.ch = 0
           this.simplemde.codemirror.setSelection(pos, pos)
           this.simplemde.codemirror.replaceSelection(text)
@@ -465,7 +466,11 @@
             this.getManifestUrl(url).then((manifestUrl) => {
               let imageId = manifestUrl.split('/').slice(3,-1).join('/')
               // this.insertAtCursor(cursorPos, `.ve-image ${decodeURIComponent(imageId)}\n`)
-              this.insertAtCursor(cursorPos, `.ve-image ${imageId}\n`)
+              if (cursorPos.line === 0) {
+                this.insertAtCursor(cursorPos, `.ve-header "Essay Title" ${imageId}\n`)
+              } else {
+                this.insertAtCursor(cursorPos, `.ve-image ${imageId}\n`)
+              }
             })
           }
         }
