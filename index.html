@@ -444,7 +444,7 @@
       },
 
       async getManifestUrl(imageUrl) {
-        let resp = await fetch(`${this.isDev ? 'http://localhost:8088' : 'https://iiifvisual-essays.net'}/?url=${encodeURIComponent(imageUrl)}`)
+        let resp = await fetch(`${this.isDev ? 'http://localhost:8088' : 'https://iiif.visual-essays.net'}/?url=${encodeURIComponent(imageUrl)}`)
         return await resp.text()
       },
 
