@@ -404,7 +404,7 @@
       },
 
       previewRender(markdown, preview) {
-        fetch(`${apiEndpoint}/html/`, {method: 'POST', body: markdown})
+        fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: markdown})
           .then(resp => resp.text())
           .then(html => {
             let [head, body] = new DOMParser().parseFromString(html, 'text/html').children[0].children
