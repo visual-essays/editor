@@ -173,8 +173,8 @@
   <script type="module">
   import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
 
-  const iiifServer = location.hostname === 'localhost' ? 'http://localhost:8088' : 'https://iiif.visual-essays.net'
-  const apiEndpoint = location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://api.visual-essays.net'
+  const iiifServer = 'https://iiif.visual-essays.net'
+  const apiEndpoint = 'https://api.visual-essays.net'
   const essayTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
 
   new Vue({
@@ -191,7 +191,8 @@
       newEssayTitleIsValid: false,
       newEssayValidationMsg: '',
       isPreviewActive: false,
-      externalWindow: null
+      externalWindow: null,
+      loadedDependencies: []
     }),
     computed: {
       isLoggedIn() { return this.user !== null && this.tokenIsValid() },
@@ -391,41 +392,64 @@
         }
       },
 
-      stylesheetsForPreview(head) {
-        return Array.from(head.querySelectorAll('link[rel="stylesheet"]'))
-          .map(el => el.href)
-          .filter(href => href.indexOf('shoelace') === -1 && href.indexOf('main.css') === -1)
-          .map(href => href.replace(/5555/,'8080').replace(/editor\.visual-essays\.net/,'visual-essays.net'))
-          .map(href => `<link href="${href}" rel="stylesheet"></link>`).join('\n')
+      loadDependencies(dependencies, i, callback) {
+        if (dependencies.length > 0) {
+          this.load(dependencies.item(i), () => {
+            if (i < dependencies.length-1) this.loadDependencies(dependencies, i+1, callback) 
+            else if (callback) callback()
+          })
+        }
       },
 
-      jsForPreview() {
-        return `<script src="${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/static/js/main.js" type="text/javascript"><\/script>`
+      load(srcEl, callback) {
+        let e
+        if (srcEl.localName  === 'link') {
+          e = document.createElement('link')
+          e.href = srcEl.href
+          e.rel = srcEl.rel
+          e.type = 'text/css'
+          e.addEventListener('load', callback)
+          this.loadedDependencies.push(e)
+          document.getElementsByTagName('head')[0].appendChild(e)
+        } else if (srcEl.localName  === 'style') {
+          e = document.createElement('style')
+          e.textContent = srcEl.textContent
+          e.addEventListener('load', callback)
+          this.loadedDependencies.push(e)
+          document.getElementsByTagName('head')[0].appendChild(e)
+        } else if (srcEl.localName  === 'script') {
+          e = document.createElement('script')
+          if (srcEl.src) {
+            e.src = srcEl.src
+            if (srcEl.type) e.type = srcEl.type
+            e.addEventListener('load', callback)
+          } else {
+            if (srcEl.type) e.type = srcEl.type
+            e.text = srcEl.text
+          }
+          this.loadedDependencies.push(e)
+          document.getElementsByTagName('body')[0].appendChild(e)
+          if (!e.src) callback()
+        }
       },
 
       previewRender(markdown, preview) {
-        fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: markdown})
-          .then(resp => resp.text())
-          .then(html => {
-            let [head, body] = new DOMParser().parseFromString(html, 'text/html').children[0].children
-            Array.from(body.querySelectorAll('ve-image')).forEach(veImg => veImg.setAttribute('auth-token', this.authToken))
-            preview.innerHTML = [
-              this.stylesheetsForPreview(head),
-              head.querySelector('style').outerHTML,
-              body.innerHTML
-            ].join('\n')
-            Array.from(preview.querySelectorAll('script')).forEach(el => {
-              const script = document.createElement('script')
-              if (el.type) script.type = el.type
-              if (el.src) script.src = el.src
-              else script.text = el.text
-              el.parentElement.removeChild(el)
-              preview.appendChild(script)
+        if (this.isPreviewActive) {
+          this.loadedDependencies.forEach(el => el.parentElement.removeChild(el))
+          this.loadedDependencies = []
+        } else {
+          fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: markdown})
+            .then(resp => resp.text())
+            .then(html => {
+              let [head, body] = new DOMParser().parseFromString(html, 'text/html').children[0].children
+              Array.from(body.querySelectorAll('ve-image')).forEach(veImg => veImg.setAttribute('auth-token', this.authToken))
+              preview.innerHTML = body.innerHTML
+              this.loadDependencies(head.querySelectorAll('link[rel="stylesheet"]'), 0, () => this.loadDependencies(head.querySelectorAll('style'), 0))
+              this.loadDependencies(body.querySelectorAll('script'), 0)
             })
-          })
-        return ''
+          return ''
+        }
       },
-
 
       insertAtCursor(pos, text) {
         let priorLine = this.simplemde.codemirror.getRange({line:pos.line-2, char:0}, pos).trim().split(/\s/)
@@ -436,7 +460,6 @@
           this.simplemde.codemirror.setSelection({line:pos.line-1,ch:0}, {line:pos.line})
           this.simplemde.codemirror.replaceSelection(merged)
         } else {
-          console.log(pos)
           pos.ch = 0
           this.simplemde.codemirror.setSelection(pos, pos)
           this.simplemde.codemirror.replaceSelection(text)
@@ -539,14 +562,14 @@
     },
     watch: {
       isLoggedIn(isLoggedIn) {
-        console.log(`isLoggedIn=${isLoggedIn} essay=${this.essayTitle}`)
+        // console.log(`isLoggedIn=${isLoggedIn} essay=${this.essayTitle}`)
         if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
       },
       async user() {
         this.validateToken()
         if (this.user) {
           let isNewUser = await this.isNewUser()
-          console.log(`user=${this.userHash.slice(0,8)} isNewUser=${isNewUser}`)
+          // console.log(`user=${this.userHash.slice(0,8)} isNewUser=${isNewUser}`)
           if (isNewUser) {
             this.createNewUserEssays()
             this.essayTitle = 'getting-started'
