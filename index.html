@@ -7,15 +7,16 @@
   <title>Visual Essays Editor</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/themes/light.css" rel="stylesheet"/>
-  <link href="https://use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet">
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     [v-cloak] {display: none}
     body {margin: 0; padding: 0;}
     * {box-sizing: border-box;}
     #editor {font-family:Roboto,sans-serif;height:100vh; width:100%;}
-    header {position:fixed; width:100%; min-height:50px; display:flex; align-items:center; gap:16px; padding:6px 18px; background-color:#ccc; z-index:100;}
-    header div:last-child {margin-left: auto;}
+    #editor > header {position:fixed; width:100%; min-height:50px; display:flex; align-items:center; gap:16px; padding:6px 18px; background-color:#ccc; z-index:100;}
+    #editor > header div:last-child {margin-left: auto;}
     /* ve-footer {margin-left:1rem; width:calc(100% - 2rem);} */
     ve-footer {width:100%;}
     .logo {height:30px;}
@@ -31,7 +32,8 @@
     .controls {padding:6px 0; gap:6px;}
     .buttons {margin-left:auto;}
     .toolbar.buttons {display:flex;}
-    sl-icon {font-size:1.2rem; margin-top:9px;}
+    i {font-size:1.6rem; font-weight:400; margin-left:9px; color:#777; cursor:pointer;}
+    i:hover {color:#333;}
     .essay-title {display:inline-block; padding:2px 6px;}
     .essay-list li {display:flex; flex-direction:row; justify-items:start; align-items:center; padding:0; margin:0; list-style:none;}
     .essay-list li span {cursor:pointer; padding:3px;}
@@ -68,35 +70,18 @@
         <div v-cloak class="essay-selector">
           <span v-cloak><b>Essay: </b></span>
           <div class="essay-title" v-html="essayTitle"></div>
-          <sl-tooltip v-cloak content="Open Essays File Manager" :disabled="isMobile">
-            <sl-icon-button name="folder" label="Essay Folder" @click="openFileManagerDialog"></sl-icon-button>
-          </sl-tooltip>
+          <i class="fa-solid fa-folder-open" @click="openFileManagerDialog" v-b-tooltip.hover title="Essay Folder"></i>
         </div>
 
         <div v-cloak class="buttons">
-          <sl-button-group label="Toolbar" class="toolbar">
-            <sl-tooltip content="Show Help Documentation" :disabled="isMobile">
-              <sl-button @click="showHelp"><sl-icon name="question-square" label="Show Help Documentation"></sl-icon></sl-button>
-            </sl-tooltip>
-            <sl-tooltip content="Save Essay" :disabled="isMobile">
-              <sl-button @click="saveMarkdown"><sl-icon name="save" label="Save Essay"></sl-icon></sl-button>
-            </sl-tooltip>
-            <sl-tooltip content="Copy Essay Link" :disabled="isMobile">
-              <sl-button @click="copyLink"><sl-icon name="link-45deg" label="Copy Essay Link"></sl-icon></sl-button>
-            </sl-tooltip>
-            <sl-tooltip content="Copy Essay Text" :disabled="isMobile">
-              <sl-button @click="copyText"><sl-icon name="clipboard-check" label="Copy Essay Text"></sl-icon></sl-button>
-            </sl-tooltip>
-            <sl-tooltip content="View Essay" :disabled="isMobile">
-              <sl-button @click="launch"><sl-icon name="box-arrow-up-right" label="View Essay"></sl-icon></sl-button>
-            </sl-tooltip>
-          </sl-button-group>
-          <sl-tooltip content="Toggle Essay Preview" :disabled="isMobile">
-            <sl-button @click="togglePreview"><sl-icon name="eye" label="Toggle Essay Preview"></sl-icon></sl-button>
-          </sl-tooltip>
+          <i class="fa-solid fa-circle-question" @click="showHelp" v-b-tooltip.hover title="Show Help Documentation"></i>
+          <i class="fa-solid fa-floppy-disk" @click="saveMarkdown" v-b-tooltip.hover title="Save Essay"></i>
+          <i class="fa-solid fa-link" @click="copyLink" v-b-tooltip.hover title="Copy Essay Link"></i>
+          <i class="fa-solid fa-copy" @click="copyText" v-b-tooltip.hover title="Copy Essay Text"></i>
+          <i class="fa-solid fa-arrow-up-right-from-square" @click="launch" v-b-tooltip.hover title="View Essay"></i>
+          <i class="fa-solid fa-eye" @click="togglePreview" v-b-tooltip.hover title="Toggle Essay Preview"></i>
         </div>
 
-    
       </div>
 
       <textarea v-cloak ref="content"></textarea>
@@ -108,29 +93,33 @@
     </div>
 
     <!-- <ve-footer sticky></ve-footer> -->
-  
-    <sl-dialog v-cloak label="Essays File Manager" class="file-manager-dialog">
+
+    <b-modal v-cloak id="file-manager-dialog" title="Essays File Manager">
       Essays
       <ul class="essay-list">
         <li v-for="essayPath in essayList" :key="essayPath">
           <span :class="{selected: essayPath === essayTitle}" v-html="essayPath" @click="selectEssay(essayPath)" style="cursor:pointer;"></span>
-          <sl-icon-button name="trash" label="Delete Essay" @click="deleteEssay(essayPath)" class="push"></sl-icon-button>
+          <i class="fa-solid fa-trash" @click="deleteEssay(essayPath)" v-b-tooltip.hover title="Delete Essay" class="push"></i>
         </li>
       </ul>
-      <sl-button slot="footer" variant="primary" @click="openNewEssayDialog">New Essay</sl-button>
-      <sl-button slot="footer" variant="primary" @click="closeFileManagerDialog">Close</sl-button>
-    </sl-dialog>
-  
-    <sl-dialog v-cloak label="New Essay" class="new-essay-dialog">
+      <template #modal-footer="{ ok, cancel }">
+        <b-button size="sm" variant="primary" @click="openNewEssayDialog">New Essay</b-button>
+        <b-button size="sm" @click="closeFileManagerDialog">Close</b-button>
+      </template>
+    </b-modal>
+
+    <b-modal v-cloak id="new-essay-dialog" title="New Essay">
       New Essay
-      <sl-input id="newEssayTitle" placeholder="Enter essay name" size="medium" @keyup="essayTitleValidator"></sl-input>
+      <b-form-input id="newEssayTitle" placeholder="Enter essay name" @keyup="essayTitleValidator"></b-form-input>
       <div v-html="newEssayValidationMsg" style="height:1rem;"></div>
-      <sl-button slot="footer" @click="cancelNewEssayDialog">Cancel</sl-button>
-      <sl-button slot="footer" variant="primary" :disabled="newEssayTitleIsValid ? false : true" @click="submitNewEssayDialog">Submit</sl-button>
-    </sl-dialog>
-
-  </div>
-
+      <template #modal-footer="{ cancel, ok }">
+        <b-button size="sm" @click="cancelNewEssayDialog">Cancel</b-button>
+        <b-button size="sm" variant="primary" @click="submitNewEssayDialog" :disabled="newEssayTitleIsValid ? false : true">Submit</b-button>
+      </template>
+    </b-modal>
+  
+</div>
+  
   <script type="module">
     function addScript(src) {
       const script = document.createElement('script')
@@ -147,8 +136,9 @@
     const isDev = location.hostname === 'localhost'
   </script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue-icons.min.js"></script>
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" type="text/javascript"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.73/dist/shoelace.js" type="module"></script>
   <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>  
   <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/ScrollMagic/2.0.7/ScrollMagic.min.js" type="text/javascript"></script>
@@ -173,8 +163,7 @@
   <script type="module">
   import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
 
-  const iiifServer = 'https://iiif.visual-essays.net'
-  const apiEndpoint = 'https://api.visual-essays.net'
+  const apiEndpoint = 'https://api.juncture-digital.org'
   const essayTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
 
   new Vue({
@@ -237,7 +226,7 @@
       },
 
       async isNewUser() {
-        let resp = await fetch(`${apiEndpoint}/gcs/${this.userHash}/`)
+        let resp = await fetch(`${apiEndpoint}/dir/${this.userHash}/`)
         if (resp.ok) {
           let essayList = await resp.json()
           return essayList.length === 0
@@ -250,7 +239,7 @@
         let resp = fetch(`${apiEndpoint}/markdown/a3b51252/${title}/`)
         if (resp.ok) {
           let markdown = await resp.text()
-          await fetch(`${apiEndpoint}/gcs/${this.userHash}/${title}/`, {
+          await fetch(`${apiEndpoint}/markdown/${this.userHash}/${title}/`, {
             method: 'POST',
             headers: {Authorization:`Bearer ${this.authToken}`},
             body: markdown
@@ -293,30 +282,30 @@
 
       openFileManagerDialog() {
         this.getEssayList()
-        document.querySelector('.file-manager-dialog').show()
+        this.$bvModal.show('file-manager-dialog')
       },
 
       closeFileManagerDialog() {
-        document.querySelector('.file-manager-dialog').hide()
+        this.$bvModal.hide('file-manager-dialog')
       },
 
       openNewEssayDialog() {
-        document.querySelector('.new-essay-dialog').show()
+        this.$bvModal.show('new-essay-dialog')
       },
 
       cancelNewEssayDialog() {
-        document.querySelector('.new-essay-dialog').hide()
+        this.$bvModal.hide('new-essay-dialog')
       },
 
       submitNewEssayDialog() {
         let input = document.getElementById('newEssayTitle')
         this.createEssay(input.value)
         input.value = ''
-        document.querySelector('.new-essay-dialog').hide()
+        this.$bvModal.hide('new-essay-dialog')
       },
 
       getEssayList() {
-        fetch(`${apiEndpoint}/gcs/${this.userHash}/`, {
+        fetch(`${apiEndpoint}/dir/${this.userHash}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
         }).then(resp => resp.json())
         .then(essayList => this.essayList = essayList.map(path => path.split('/').slice(1).join('/')))
@@ -324,7 +313,7 @@
 
       createEssay(essay) {
         let essayId = `${this.userHash}/${essay}`
-        fetch(`${apiEndpoint}/gcs/${essayId}/`, {
+        fetch(`${apiEndpoint}/markdown/${essayId}/`, {
           method: 'POST',
           headers: {Authorization:`Bearer ${this.authToken}`},
           body: `# ${essay}`
@@ -341,7 +330,7 @@
 
       deleteEssay(essay) {
         let essayId = `${this.userHash}/${essay}`
-        fetch(`${apiEndpoint}/gcs/${essayId}/`, {
+        fetch(`${apiEndpoint}/markdown/${essayId}/`, {
           method: 'DELETE',
           headers: {Authorization:`Bearer ${this.authToken}`},
           body: `# ${essay}`
@@ -358,14 +347,14 @@
       essayTitleValidator: _.throttle(function () {
         let essayTitle = document.getElementById('newEssayTitle').value
         this.newEssayTitleIsValid = essayTitleRegex.test(essayTitle)
-        // console.log('essayTitleValidator', essayTitle, this.newEssayTitleIsValid)
+        console.log('essayTitleValidator', essayTitle, this.newEssayTitleIsValid)
         this.newEssayValidationMsg = this.newEssayTitleIsValid ? ' ' : 'Invalid essay title'
       }, 100),
 
       async getMarkdown(createIfNotFound) {
         let essayId = `${this.userHash}/${this.essayTitle}`
         await this.validateToken()
-        let resp = await fetch(`${apiEndpoint}/gcs/${essayId}/`, {
+        let resp = await fetch(`${apiEndpoint}/markdown/${essayId}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
         })
         if (resp.status == 200) {
@@ -384,7 +373,7 @@
           localStorage.setItem(`${this.userHash}/essay-title`, this.essayTitle)
           // console.log(`saveMarkdown: essayId=${essayId} markdown_size=${markdown.length}`)
           await this.validateToken()
-          fetch(`${apiEndpoint}/gcs/${essayId}/`, {
+          fetch(`${apiEndpoint}/markdown/${essayId}/`, {
             method: 'POST',
             headers: {Authorization:`Bearer ${this.authToken}`},
             body: markdown })
@@ -402,6 +391,7 @@
       },
 
       load(srcEl, callback) {
+        console.log(srcEl)
         let e
         if (srcEl.localName  === 'link') {
           e = document.createElement('link')
