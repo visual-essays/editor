@@ -133,8 +133,8 @@
       link.href = href
       document.head.appendChild(link)
     }
-    const isDev = location.hostname === 'localhost'
   </script>
+
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
   <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
   <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue-icons.min.js"></script>
@@ -161,9 +161,32 @@
   </script>
 
   <script type="module">
+
+  const isDev = location.host === 'localhost:5555'
+  const apiEndpoint = isDev
+    ? 'http://localhost:8000'
+    : location.hosthame === 'localhost'
+      ? 'https://api.juncture-digital.org'
+      : `https://api.${location.hostname.split('.').slice(1).join('.')}`
+  const iiifEndpoint = isDev
+    ? 'http://localhost:8088'
+    : location.hosthame === 'localhost'
+      ? 'https://iiif.juncture-digital.org'
+      : `https://iiif.${location.hostname.split('.').slice(1).join('.')}`
+  const webappHost = isDev
+    ? 'http://localhost:8080'
+    : location.hostname === 'juncture-digital.org'
+      ? 'beta.juncture-digital.org'
+      : `https://${location.hostname.split('.').slice(1).join('.')}`
+  const authEndpoint = isDev
+    ? 'https://editor.visual-essays.net/.netlify/identity/token'
+    : `https://editor.${location.hostname.split('.').slice(1).join('.')}/.netlify/identity/token`
+  const wcDevEndpoint = 'http://localhost:3333/build'
+
+  console.log(`editor: isDev=${isDev} apiEndpoint=${apiEndpoint} iiifEndpoint=${iiifEndpoint} webappHost=${webappHost} authEndpoint=${authEndpoint}`)
+
   import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
 
-  const apiEndpoint = 'https://api.juncture-digital.org'
   const essayTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
 
   new Vue({
@@ -181,20 +204,21 @@
       newEssayValidationMsg: '',
       isPreviewActive: false,
       externalWindow: null,
-      loadedDependencies: []
+      loadedDependencies: [],
+      apiEndpoint
     }),
     computed: {
       isLoggedIn() { return this.user !== null && this.tokenIsValid() },
       authToken() { return this.tokenIsValid() ? this.user.token.access_token : null },
       userHash() { return this.user && this.hashStr(this.user?.email.toLowerCase()) },
-      isDev() { return location.hostname === 'localhost' },
+      // isDev() { return location.hostname === 'localhost' },
       essayLink() { return this.essayTitle === 'default'
-        ? `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash}/`
-        : `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash}/${this.essayTitle}/`
+        ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/`
+        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/${this.essayTitle}/`
       },
       essayLinkShort() { return this.essayTitle === 'default'
-        ? `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash.slice(0,8)}/`
-        : `${this.isDev ? 'http://localhost:8080' : 'https://visual-essays.net'}/${this.userHash.slice(0,8)}/${this.essayTitle}/`
+        ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/`
+        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/${this.essayTitle}/`
       },
       isMobile() { return ('ontouchstart' in document.documentElement && /mobi/i.test(navigator.userAgent)) }
     },
@@ -235,7 +259,6 @@
       },
 
       async addEssay(title) {
-        // let resp = await fetch(`https://raw.githubusercontent.com/visual-essays/content/main/templates${title}`)
         let resp = fetch(`${apiEndpoint}/markdown/a3b51252/${title}/`)
         if (resp.ok) {
           let markdown = await resp.text()
@@ -270,8 +293,7 @@
       },
 
       showHelp() {
-        // this.openWindow(`https://visual-essays.net${this.isDev ? '/a3b5125/' : '/'}help/`, `toolbar=no,location=no,left=0,top=0,width=800,height=800,scrollbars=no,status=no`)
-        this.openWindow('https://visual-essays.net/a3b5125/help/', `toolbar=no,location=no,left=0,top=0,width=800,height=800,scrollbars=no,status=no`)
+        this.openWindow(`${webappHost}/a3b5125/help/`, `toolbar=no,location=no,left=0,top=0,width=800,height=800,scrollbars=no,status=no`)
       },
 
       openWindow(url, options) {
@@ -347,7 +369,7 @@
       essayTitleValidator: _.throttle(function () {
         let essayTitle = document.getElementById('newEssayTitle').value
         this.newEssayTitleIsValid = essayTitleRegex.test(essayTitle)
-        console.log('essayTitleValidator', essayTitle, this.newEssayTitleIsValid)
+        // console.log('essayTitleValidator', essayTitle, this.newEssayTitleIsValid)
         this.newEssayValidationMsg = this.newEssayTitleIsValid ? ' ' : 'Invalid essay title'
       }, 100),
 
@@ -391,11 +413,12 @@
       },
 
       load(srcEl, callback) {
-        console.log(srcEl)
         let e
         if (srcEl.localName  === 'link') {
           e = document.createElement('link')
-          e.href = srcEl.href
+          e.href = isDev
+            ? srcEl.href.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcDevEndpoint)
+            : srcEl.href
           e.rel = srcEl.rel
           e.type = 'text/css'
           e.addEventListener('load', callback)
@@ -410,7 +433,9 @@
         } else if (srcEl.localName  === 'script') {
           e = document.createElement('script')
           if (srcEl.src) {
-            e.src = srcEl.src
+            e.src = isDev
+              ? srcEl.src.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcDevEndpoint)
+              : srcEl.src
             if (srcEl.type) e.type = srcEl.type
             e.addEventListener('load', callback)
           } else {
@@ -457,7 +482,7 @@
       },
 
       async getManifestUrl(imageUrl) {
-        let resp = await fetch(`${this.isDev ? 'http://localhost:8088' : 'https://iiif.visual-essays.net'}/?url=${encodeURIComponent(imageUrl)}`)
+        let resp = await fetch(`${isDev ? 'http://localhost:8088' : iiifEndpoint}/?url=${encodeURIComponent(imageUrl)}`)
         return await resp.text()
       },
 
@@ -470,7 +495,7 @@
           let parsed = new URL(url)
           let manifestUrl = parsed.searchParams.get('manifest')
           if (manifestUrl) {
-            let imageId = manifestUrl.indexOf('iiif.visual-essays.net') > 0 && manifestUrl.indexOf('manifest.json') > 0
+            let imageId = manifestUrl.indexOf(iiifEndpoint) > 0 && manifestUrl.indexOf('manifest.json') > 0
               ? manifestUrl.split('/').slice(-2,-1).pop()
               : manifestUrl
               this.insertAtCursor(cursorPos, `.ve-image ${decodeURIComponent(imageId)}\n`)
@@ -521,7 +546,7 @@
           const formData = new FormData()
           formData.append('grant_type', 'refresh_token')
           formData.append('refresh_token', this.user.token.refresh_token)
-          fetch('https://editor.visual-essays.net/.netlify/identity/token', {
+          fetch(authEndpoint, {
               method : 'POST',
               body : formData
           }).then(x=>x.json()).then(newToken => {
@@ -568,6 +593,7 @@
         }
       },
       essayTitle(essayTitle, prior) {
+        console.log(`essayTitle=${essayTitle}`)
         if (this.userHash && essayTitle) {
           location.hash = `#/${this.userHash}/${essayTitle}`
           this.getMarkdown(true)
