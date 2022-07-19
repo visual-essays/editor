@@ -161,7 +161,7 @@
   </script>
 
   <script type="module">
-
+  console.log(location)
   const isDev = location.host === 'localhost:5555'
   const apiEndpoint = isDev
     ? 'http://localhost:8000'
@@ -176,7 +176,7 @@
   const webappHost = isDev
     ? 'http://localhost:8080'
     : location.hostname === 'editor.juncture-digital.org'
-      ? 'beta.juncture-digital.org'
+      ? 'https://beta.juncture-digital.org'
       : `https://${location.hostname.split('.').slice(1).join('.')}`
   const authEndpoint = isDev
     ? 'https://editor.visual-essays.net/.netlify/identity/token'
