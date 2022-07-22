@@ -214,11 +214,11 @@
       // isDev() { return location.hostname === 'localhost' },
       essayLink() { return this.essayTitle === 'default'
         ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/`
-        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/${this.essayTitle}/`
+        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/${this.essayTitle.replace(/\.md\s*$/,'')}/`
       },
       essayLinkShort() { return this.essayTitle === 'default'
         ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/`
-        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/${this.essayTitle}/`
+        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/${this.essayTitle.replace(/\.md\s*$/,'')}/`
       },
       isMobile() { return ('ontouchstart' in document.documentElement && /mobi/i.test(navigator.userAgent)) }
     },
@@ -330,7 +330,8 @@
         fetch(`${apiEndpoint}/dir/${this.userHash}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
         }).then(resp => resp.json())
-        .then(essayList => this.essayList = essayList.map(path => path.split('/').slice(1).join('/')))
+        // .then(essayList => this.essayList = essayList.map(path => path.split('/').slice(1).join('/')))
+        .then(essayList => this.essayList = essayList)
       },
 
       createEssay(essay) {
