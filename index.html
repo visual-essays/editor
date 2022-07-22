@@ -28,21 +28,21 @@
     .wrapper {width:100%; height:calc(100% - 120px); display:flex; padding:12px; gap:12px;}
     .wrapper > * {flex: 1;} /* even width flex columns */
     .overDropzone {position:absolute; left:0; background:rgba(0,0,0,.1);}
-    .controls, .essay-selector {display:flex; align-items:center;}
+    .controls, .file-selector {display:flex; align-items:center;}
     .controls {padding:6px 0; gap:6px;}
     .buttons {margin-left:auto;}
     .toolbar.buttons {display:flex;}
     i {font-size:1.6rem; font-weight:400; margin-left:9px; color:#777; cursor:pointer;}
     i:hover {color:#333;}
-    .essay-title {display:inline-block; padding:2px 6px;}
-    .essay-list li {display:flex; flex-direction:row; justify-items:start; align-items:center; padding:0; margin:0; list-style:none;}
-    .essay-list li span {cursor:pointer; padding:3px;}
-    .essay-list li span:hover {background-color:#ddd;}
+    .file-title {display:inline-block; padding:2px 6px;}
+    .file-list li {display:flex; flex-direction:row; justify-items:start; align-items:center; padding:0; margin:0; list-style:none;}
+    .file-list li span {cursor:pointer; padding:3px;}
+    .file-list li span:hover {background-color:#ddd;}
     .selected {background-color:#ccc;}
     .CodeMirror {height: 100%;}
     .editor-preview {padding:0;}
     .netlify-identity-user-details{display:none;}
-    .preview .editor-toolbar, .preview .editor-statusbar, .preview .essay-selector, .preview .toolbar {display: none}
+    .preview .editor-toolbar, .preview .editor-statusbar, .preview .file-selector, .preview .toolbar {display: none}
     @media (max-width: 760px) {
       .title {font-size: 1rem;}
       .netlify-identity-item {font-size: 1rem;}
@@ -67,15 +67,15 @@
 
       <div class="controls">
         
-        <div v-cloak class="essay-selector">
+        <div v-cloak class="file-selector">
           <span v-cloak><b>Essay: </b></span>
-          <div class="essay-title" v-html="essayTitle"></div>
+          <div class="file-title" v-html="fileTitle"></div>
           <i class="fa-solid fa-folder-open" @click="openFileManagerDialog" v-b-tooltip.hover title="Essay Folder"></i>
         </div>
 
         <div v-cloak class="buttons">
           <i class="fa-solid fa-circle-question" @click="showHelp" v-b-tooltip.hover title="Show Help Documentation"></i>
-          <i class="fa-solid fa-floppy-disk" @click="saveMarkdown" v-b-tooltip.hover title="Save Essay"></i>
+          <i class="fa-solid fa-floppy-disk" @click="saveFile" v-b-tooltip.hover title="Save Essay"></i>
           <i class="fa-solid fa-link" @click="copyLink" v-b-tooltip.hover title="Copy Essay Link"></i>
           <i class="fa-solid fa-copy" @click="copyText" v-b-tooltip.hover title="Copy Essay Text"></i>
           <i class="fa-solid fa-arrow-up-right-from-square" @click="launch" v-b-tooltip.hover title="View Essay"></i>
@@ -94,27 +94,27 @@
 
     <!-- <ve-footer sticky></ve-footer> -->
 
-    <b-modal v-cloak id="file-manager-dialog" title="Essays File Manager">
-      Essays
-      <ul class="essay-list">
-        <li v-for="essayPath in essayList" :key="essayPath">
-          <span :class="{selected: essayPath === essayTitle}" v-html="essayPath" @click="selectEssay(essayPath)" style="cursor:pointer;"></span>
-          <i class="fa-solid fa-trash" @click="deleteEssay(essayPath)" v-b-tooltip.hover title="Delete Essay" class="push"></i>
+    <b-modal v-cloak id="file-manager-dialog" title="File Manager">
+      Files
+      <ul class="files-list">
+        <li v-for="filePath in fileList" :key="filePath">
+          <span :class="{selected: filePath === fileTitle}" v-html="filePath" @click="selectFile(filePath)" style="cursor:pointer;"></span>
+          <i class="fa-solid fa-trash" @click="deleteFile(filePath)" v-b-tooltip.hover title="Delete File" class="push"></i>
         </li>
       </ul>
       <template #modal-footer="{ ok, cancel }">
-        <b-button size="sm" variant="primary" @click="openNewEssayDialog">New Essay</b-button>
+        <b-button size="sm" variant="primary" @click="openNewFileDialog">New File</b-button>
         <b-button size="sm" @click="closeFileManagerDialog">Close</b-button>
       </template>
     </b-modal>
 
-    <b-modal v-cloak id="new-essay-dialog" title="New Essay">
-      New Essay
-      <b-form-input id="newEssayTitle" placeholder="Enter essay name" @keyup="essayTitleValidator"></b-form-input>
-      <div v-html="newEssayValidationMsg" style="height:1rem;"></div>
+    <b-modal v-cloak id="new-file-dialog" title="New File">
+      New File
+      <b-form-input id="newFileTitle" placeholder="Enter file name" @keyup="fileTitleValidator"></b-form-input>
+      <div v-html="newFileValidationMsg" style="height:1rem;"></div>
       <template #modal-footer="{ cancel, ok }">
-        <b-button size="sm" @click="cancelNewEssayDialog">Cancel</b-button>
-        <b-button size="sm" variant="primary" @click="submitNewEssayDialog" :disabled="newEssayTitleIsValid ? false : true">Submit</b-button>
+        <b-button size="sm" @click="cancelNewFileDialog">Cancel</b-button>
+        <b-button size="sm" variant="primary" @click="submitNewFileDialog" :disabled="newFileTitleIsValid ? false : true">Submit</b-button>
       </template>
     </b-modal>
   
@@ -161,7 +161,6 @@
   </script>
 
   <script type="module">
-  console.log(location)
   const isDev = location.host === 'localhost:5555'
   const apiEndpoint = isDev
     ? 'http://localhost:8000'
@@ -187,21 +186,21 @@
 
   import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
 
-  const essayTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
+  const fileTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
 
   new Vue({
     name: 'Visual Essays Editor',
     el: '#editor',
     data: () => ({
-      essayTitle: '',
-      essayList: [],
+      fileTitle: '',
+      fileList: [],
       simplemde: null,
       overDropzone: false,
       user: null,
       annoBase: null,
       tokenIsRefreshing: false,
-      newEssayTitleIsValid: false,
-      newEssayValidationMsg: '',
+      newFileTitleIsValid: false,
+      newFileValidationMsg: '',
       isPreviewActive: false,
       externalWindow: null,
       loadedDependencies: [],
@@ -212,13 +211,13 @@
       authToken() { return this.tokenIsValid() ? this.user.token.access_token : null },
       userHash() { return this.user && this.hashStr(this.user?.email.toLowerCase()) },
       // isDev() { return location.hostname === 'localhost' },
-      essayLink() { return this.essayTitle === 'default'
+      fileLink() { return this.fileTitle === 'default'
         ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/`
-        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/${this.essayTitle.replace(/\.md\s*$/,'')}/`
+        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/${this.fileTitle.replace(/\.md\s*$/,'')}/`
       },
-      essayLinkShort() { return this.essayTitle === 'default'
+      fileLinkShort() { return this.fileTitle === 'default'
         ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/`
-        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/${this.essayTitle.replace(/\.md\s*$/,'')}/`
+        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/${this.fileTitle.replace(/\.md\s*$/,'')}/`
       },
       isMobile() { return ('ontouchstart' in document.documentElement && /mobi/i.test(navigator.userAgent)) }
     },
@@ -226,7 +225,7 @@
       this.initAuth()
       if (location.hash.length > 1) {
         let pathElems = location.hash.slice(1).split('/').filter(pe => pe)
-        if (pathElems.length > 1) this.essayTitle = pathElems.slice(1).join('/')
+        if (pathElems.length > 1) this.fileTitle = pathElems.slice(1).join('/')
       }
     },
     mounted() {},
@@ -244,25 +243,25 @@
           hideIcons: ['side-by-side', 'fullscreen', 'preview', 'guide']
         })
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
-        this.simplemde.codemirror.on('change', _.debounce(() => this.saveMarkdown(), 10000))
+        // this.simplemde.codemirror.on('change', _.debounce(() => this.saveFile(), 10000))
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
-        this.essayTitle = this.essayTitle || localStorage.getItem(`${this.userHash}/essay-title`) || 'default'
+        this.fileTitle = this.fileTitle || localStorage.getItem(`${this.userHash}/file-title`) || 'default'
       },
 
       async isNewUser() {
         let resp = await fetch(`${apiEndpoint}/dir/${this.userHash}/`)
         if (resp.ok) {
-          let essayList = await resp.json()
-          return essayList.length === 0
+          let fileList = await resp.json()
+          return fileList.length === 0
         }
         return true
       },
 
-      async addEssay(title) {
-        let resp = fetch(`${apiEndpoint}/markdown/a3b51252/${title}/`)
+      async addFile(title) {
+        let resp = fetch(`${apiEndpoint}/file/a3b51252/${title}/`)
         if (resp.ok) {
           let markdown = await resp.text()
-          await fetch(`${apiEndpoint}/markdown/${this.userHash}/${title}/`, {
+          await fetch(`${apiEndpoint}/file/${this.userHash}/${title}/`, {
             method: 'POST',
             headers: {Authorization:`Bearer ${this.authToken}`},
             body: markdown
@@ -271,12 +270,12 @@
       },
 
       async createNewUserEssays() {
-        await this.addEssay('default')
-        await this.addEssay('getting-started')
+        await this.addFile('default.md')
+        await this.addFile('getting-started.md')
       },
 
       copyLink() {
-        navigator.clipboard.writeText(this.essayLinkShort)
+        navigator.clipboard.writeText(this.fileLinkShort)
       },
 
       copyText() {
@@ -284,7 +283,7 @@
       },
 
       launch() {
-        window.open(this.essayLinkShort, '_blank')
+        window.open(this.fileLinkShort, '_blank')
       },
 
       togglePreview() {
@@ -303,7 +302,7 @@
       },
 
       openFileManagerDialog() {
-        this.getEssayList()
+        this.getDirList()
         this.$bvModal.show('file-manager-dialog')
       },
 
@@ -311,92 +310,104 @@
         this.$bvModal.hide('file-manager-dialog')
       },
 
-      openNewEssayDialog() {
-        this.$bvModal.show('new-essay-dialog')
+      openNewFileDialog() {
+        this.$bvModal.show('new-file-dialog')
       },
 
-      cancelNewEssayDialog() {
-        this.$bvModal.hide('new-essay-dialog')
+      cancelNewFileDialog() {
+        this.$bvModal.hide('new-file-dialog')
       },
 
-      submitNewEssayDialog() {
-        let input = document.getElementById('newEssayTitle')
-        this.createEssay(input.value)
+      submitNewFileDialog() {
+        let input = document.getElementById('newFileTitle')
+        this.createFile(input.value)
         input.value = ''
-        this.$bvModal.hide('new-essay-dialog')
+        this.$bvModal.hide('new-file-dialog')
       },
 
-      getEssayList() {
+      getDirList() {
         fetch(`${apiEndpoint}/dir/${this.userHash}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
         }).then(resp => resp.json())
-        // .then(essayList => this.essayList = essayList.map(path => path.split('/').slice(1).join('/')))
-        .then(essayList => this.essayList = essayList)
+        // .then(fileList => this.fileList = fileList.map(path => path.split('/').slice(1).join('/')))
+        .then(fileList => this.fileList = fileList)
       },
 
-      createEssay(essay) {
-        let essayId = `${this.userHash}/${essay}`
-        fetch(`${apiEndpoint}/markdown/${essayId}/`, {
+      createFile(path) {
+        let fileId = `${this.userHash}/${path}`
+        let extension = path.trim().split('.').pop()
+        let fileContent = extension === 'md'
+          ? `# ${path}`
+          : extension === 'css'
+            ? `/* ${path} */`
+            : ''
+        fetch(`${apiEndpoint}/file/${fileId}/`, {
           method: 'POST',
           headers: {Authorization:`Bearer ${this.authToken}`},
-          body: `# ${essay}`
+          body: fileContent
         })
         .then(resp => {
           if (resp.ok && resp.status === 200) {
-            let essayList = [...this.essayList]
-            essayList.push(essay)
-            essayList.sort()
-            this.essayList = essayList
+            let fileList = [...this.fileList]
+            fileList.push(path)
+            fileList.sort()
+            this.fileList = fileList
+            this.fileTitle = path
           }
+          this.closeFileManagerDialog()
         })
       },
 
-      deleteEssay(essay) {
-        let essayId = `${this.userHash}/${essay}`
-        fetch(`${apiEndpoint}/markdown/${essayId}/`, {
+      deleteFile(path) {
+        let fileId = `${this.userHash}/${path}`
+        fetch(`${apiEndpoint}/file/${fileId}/`, {
           method: 'DELETE',
-          headers: {Authorization:`Bearer ${this.authToken}`},
-          body: `# ${essay}`
+          headers: {Authorization:`Bearer ${this.authToken}`}
         })
         .then(resp => resp.json())
-        .then(resp => this.essayList = this.essayList.filter(entry => entry !== essay ))
+        .then(resp => {
+          this.fileList = this.fileList.filter(entry => entry !== path )
+          if (path == this.fileTitle) {
+            this.fileTitle = 'default.md'
+          }
+          this.closeFileManagerDialog()
+        })
       },
 
-      selectEssay(selected) {
-        this.essayTitle = selected
+      selectFile(selected) {
+        this.fileTitle = selected
         this.closeFileManagerDialog()
       },
 
-      essayTitleValidator: _.throttle(function () {
-        let essayTitle = document.getElementById('newEssayTitle').value
-        this.newEssayTitleIsValid = essayTitleRegex.test(essayTitle)
-        // console.log('essayTitleValidator', essayTitle, this.newEssayTitleIsValid)
-        this.newEssayValidationMsg = this.newEssayTitleIsValid ? ' ' : 'Invalid essay title'
+      fileTitleValidator: _.throttle(function () {
+        let fileTitle = document.getElementById('newFileTitle').value
+        this.newFileTitleIsValid = fileTitleRegex.test(fileTitle)
+        this.newFileValidationMsg = this.newFileTitleIsValid ? ' ' : 'Invalid file title'
       }, 100),
 
-      async getMarkdown(createIfNotFound) {
-        let essayId = `${this.userHash}/${this.essayTitle}`
+      async getFile(createIfNotFound) {
+        let fileId = `${this.userHash}/${this.fileTitle}`
         await this.validateToken()
-        let resp = await fetch(`${apiEndpoint}/markdown/${essayId}/`, {
+        let resp = await fetch(`${apiEndpoint}/file/${fileId}/`, {
           headers: {Authorization:`Bearer ${this.authToken}`}
         })
         if (resp.status == 200) {
           let markdown = await resp.text()
           this.simplemde.value(markdown)
         } else if (resp.status == 404 && createIfNotFound) {
-          this.simplemde.value(`# ${this.essayTitle.split('/').pop()}`)
-          this.saveMarkdown()
+          this.simplemde.value(`# ${this.fileTitle.split('/').pop()}`)
+          this.saveFile()
         }
       },
 
-      async saveMarkdown() {
-        if (this.essayTitle && this.isLoggedIn) {
+      async saveFile() {
+        if (this.fileTitle && this.isLoggedIn) {
           let markdown = this.simplemde.value()
-          let essayId = `${this.userHash}/${this.essayTitle}`
-          localStorage.setItem(`${this.userHash}/essay-title`, this.essayTitle)
-          // console.log(`saveMarkdown: essayId=${essayId} markdown_size=${markdown.length}`)
+          let fileId = `${this.userHash}/${this.fileTitle}`
+          localStorage.setItem(`${this.userHash}/file-title`, this.fileTitle)
+          // console.log(`saveFile: fileId=${fileId} markdown_size=${markdown.length}`)
           await this.validateToken()
-          fetch(`${apiEndpoint}/markdown/${essayId}/`, {
+          fetch(`${apiEndpoint}/file/${fileId}/`, {
             method: 'POST',
             headers: {Authorization:`Bearer ${this.authToken}`},
             body: markdown })
@@ -454,7 +465,8 @@
           this.loadedDependencies.forEach(el => el.parentElement.removeChild(el))
           this.loadedDependencies = []
         } else {
-          fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: markdown})
+          let body = {'prefix': this.userHash, 'markdown': markdown}
+          fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: JSON.stringify(body)})
             .then(resp => resp.text())
             .then(html => {
               let [head, body] = new DOMParser().parseFromString(html, 'text/html').children[0].children
@@ -505,7 +517,7 @@
               let imageId = manifestUrl.split('/').slice(3,-1).join('/')
               // this.insertAtCursor(cursorPos, `.ve-image ${decodeURIComponent(imageId)}\n`)
               if (cursorPos.line === 0) {
-                this.insertAtCursor(cursorPos, `.ve-header "Essay Title" ${imageId}\n`)
+                this.insertAtCursor(cursorPos, `.ve-header "File Title" ${imageId}\n`)
               } else {
                 this.insertAtCursor(cursorPos, `.ve-image ${imageId}\n`)
               }
@@ -517,13 +529,13 @@
       initAuth() {
         netlifyIdentity.on('init', (user) => this.user = user)
         netlifyIdentity.on('login', async (user) => {
-          location.hash = `#/${this.hashStr(user.email.toLowerCase())}/${this.essayTitle}`
+          location.hash = `#/${this.hashStr(user.email.toLowerCase())}/${this.fileTitle}`
           this.user = user
           netlifyIdentity.close()
         })
         netlifyIdentity.on('open', (e) => {
           if (e === 'user') {
-            this.saveMarkdown().then(resp => {
+            this.saveFile().then(resp => {
               this.logout()
             })
           }
@@ -578,7 +590,7 @@
     },
     watch: {
       isLoggedIn(isLoggedIn) {
-        // console.log(`isLoggedIn=${isLoggedIn} essay=${this.essayTitle}`)
+        // console.log(`isLoggedIn=${isLoggedIn} file=${this.fileTitle}`)
         if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
       },
       async user() {
@@ -588,16 +600,15 @@
           // console.log(`user=${this.userHash.slice(0,8)} isNewUser=${isNewUser}`)
           if (isNewUser) {
             this.createNewUserEssays()
-            this.essayTitle = 'getting-started'
+            this.fileTitle = 'getting-started'
           }
-          this.getMarkdown(true)
+          this.getFile(true)
         }
       },
-      essayTitle(essayTitle, prior) {
-        console.log(`essayTitle=${essayTitle}`)
-        if (this.userHash && essayTitle) {
-          location.hash = `#/${this.userHash}/${essayTitle}`
-          this.getMarkdown(true)
+      fileTitle(fileTitle, prior) {
+        if (this.userHash && fileTitle) {
+          location.hash = `#/${this.userHash}/${fileTitle}`
+          this.getFile(true)
           if (this.simplemde.isPreviewActive()) this.togglePreview()
         }
       },
