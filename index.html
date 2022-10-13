@@ -4,274 +4,146 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
   <link href="https://visual-essays.github.io/web-app/static/images/favicon.svg" rel="icon" type="image/svg+xml"/>
   <link href="https://visual-essays.github.io/web-app/static/images/favicon.png" rel="icon" type="image/png"/>
-  <title>Visual Essays Editor</title>
-  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
-  <link href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css" rel="stylesheet">
-  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
-  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <title>Juncture: Editor</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css" rel="stylesheet"/>
+  <link href="/manifest.json" rel="manifest"/>
+
   <style>
     [v-cloak] {display: none}
-    body {margin: 0; padding: 0;}
     * {box-sizing: border-box;}
-    #editor {font-family:Roboto,sans-serif;height:100vh; width:100%;}
-    #editor > header {position:fixed; width:100%; min-height:50px; display:flex; align-items:center; gap:16px; padding:6px 18px; background-color:#ccc; z-index:100;}
-    #editor > header div:last-child {margin-left: auto;}
-    /* ve-footer {margin-left:1rem; width:calc(100% - 2rem);} */
-    ve-footer {width:100%;}
-    .logo {height:30px;}
-    .title {font-size:1.5rem; font-weight:bold;}
-    .login ul {list-style-type:none; margin:0; padding:0; overflow:hidden;}
-    .login li {float:left; padding-left: 12px;}
-    .main {width:100%; height:100vh; padding: 60px 12px 0 12px;display:flex;flex-direction: column;}
-    .main.preview {padding-bottom:12px;}
-    .wrapper {width:100%; height:calc(100% - 120px); display:flex; padding:12px; gap:12px;}
-    .wrapper > * {flex: 1;} /* even width flex columns */
-    .overDropzone {position:absolute; left:0; background:rgba(0,0,0,.1);}
-    .controls, .file-selector {display:flex; align-items:center;}
-    .controls {padding:6px 0; gap:6px;}
-    .buttons {margin-left:auto;}
-    .toolbar.buttons {display:flex;}
-    i {font-size:1.6rem; font-weight:400; margin-left:9px; color:#777; cursor:pointer;}
-    i:hover {color:#333;}
-    .file-title {display:inline-block; padding:2px 6px;}
-    .file-list li {display:flex; flex-direction:row; justify-items:start; align-items:center; padding:0; margin:0; list-style:none;}
-    .file-list li span {cursor:pointer; padding:3px;}
-    .file-list li span:hover {background-color:#ddd;}
-    .selected {background-color:#ccc;}
-    .CodeMirror {height: 100%;}
-    .editor-preview {padding:0;}
-    .netlify-identity-user-details{display:none;}
-    .preview .editor-toolbar, .preview .editor-statusbar, .preview .file-selector, .preview .toolbar {display: none}
-    @media (max-width: 760px) {
-      .title {font-size: 1rem;}
-      .netlify-identity-item {font-size: 1rem;}
-      .controls {flex-direction:column; align-items:start;}
-      .main {padding-top:50px;}
-      .controls {flex-direction:column-reverse;}
-      /* .CodeMirror-scroll {height: calc(100vh - 290px);} */
-    }
+    body {max-width:1000px; margin: auto !important;}
+    #editor {display:grid; grid-template-rows: auto auto 1fr; height: 100vh;}
+    #mde {font-family:Roboto,sans-serif; height:100%; overflow-y: hidden;}
+    .EasyMDEContainer {height:calc(100%);}
+    .EasyMDEContainer .CodeMirror {height:calc(100% - 75px);}
+    .preview .EasyMDEContainer .CodeMirror {height:calc(100% - 60px);}
+    .editor-preview {padding:0; background-color:white;}
+    .preview .editor-statusbar {display:none;}
+    .cm-ve-tag {color:red;}
   </style>
 </head>
 <body>
 
-  <div id="editor" @drop.prevent="drop" @dragover.prevent @dragover="overDropzone=true" @dragleave="overDropzone=false" :class="{overDropzone}">
-    
-    <header v-cloak>
-      <a href="/"><img class="logo" src="https://visual-essays.github.io/content/static/images/favicon.svg"></a>
-      <div class="title">Visual Essays Editor</div>
-      <div class="login" data-netlify-identity-menu></div>
-    </header>
-
-    <div v-cloak v-if="isLoggedIn" ref="main" class="main">
-
-      <div class="controls">
-        
-        <div v-cloak class="file-selector">
-          <span v-cloak><b>Essay: </b></span>
-          <div class="file-title" v-html="fileTitle"></div>
-          <i class="fa-solid fa-folder-open" @click="openFileManagerDialog" v-b-tooltip.hover title="Essay Folder"></i>
-        </div>
-
-        <div v-cloak class="buttons">
-          <i class="fa-solid fa-circle-question" @click="showHelp" v-b-tooltip.hover title="Show Help Documentation"></i>
-          <i class="fa-solid fa-floppy-disk" @click="saveFile" v-b-tooltip.hover title="Save Essay"></i>
-          <i class="fa-solid fa-link" @click="copyLink" v-b-tooltip.hover title="Copy Essay Link"></i>
-          <i class="fa-solid fa-copy" @click="copyText" v-b-tooltip.hover title="Copy Essay Text"></i>
-          <i class="fa-solid fa-arrow-up-right-from-square" @click="launch" v-b-tooltip.hover title="View Essay"></i>
-          <i class="fa-solid fa-eye" @click="togglePreview" v-b-tooltip.hover title="Toggle Essay Preview"></i>
-        </div>
-
-      </div>
-
-      <textarea v-cloak ref="content"></textarea>
-
-    </div>
-
-    <div v-cloak v-else class="main">
-      Please login to use the editor
-    </div>
-
-    <!-- <ve-footer sticky></ve-footer> -->
-
-    <b-modal v-cloak id="file-manager-dialog" title="File Manager">
-      Files
-      <ul class="files-list">
-        <li v-for="filePath in fileList" :key="filePath">
-          <span :class="{selected: filePath === fileTitle}" v-html="filePath" @click="selectFile(filePath)" style="cursor:pointer;"></span>
-          <i class="fa-solid fa-trash" @click="deleteFile(filePath)" v-b-tooltip.hover title="Delete File" class="push"></i>
-        </li>
+  <div v-cloak id="editor">
+  
+    <ve-header
+      background="#5B152E"
+      logo="https://raw.githubusercontent.com/visual-essays/media/main/images/Juncture_Logo.png"
+      contact="Ron.Snyder@ithaka.org"
+      
+    >
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/editor">Editor</a></li>
+        <li><a href="/media">Media tool</a></li>
+        <li><a href="/contact">Contact us</a></li>
+        <li>auth</li>
       </ul>
-      <template #modal-footer="{ ok, cancel }">
-        <b-button size="sm" variant="primary" @click="openNewFileDialog">New File</b-button>
-        <b-button size="sm" @click="closeFileManagerDialog">Close</b-button>
-      </template>
-    </b-modal>
+    </ve-header>
 
-    <b-modal v-cloak id="new-file-dialog" title="New File">
-      New File
-      <b-form-input id="newFileTitle" placeholder="Enter file name" @keyup="fileTitleValidator"></b-form-input>
-      <div v-html="newFileValidationMsg" style="height:1rem;"></div>
-      <template #modal-footer="{ cancel, ok }">
-        <b-button size="sm" @click="cancelNewFileDialog">Cancel</b-button>
-        <b-button size="sm" variant="primary" @click="submitNewFileDialog" :disabled="newFileTitleIsValid ? false : true">Submit</b-button>
-      </template>
-    </b-modal>
-  
-</div>
-  
-  <script type="module">
-    function addScript(src) {
-      const script = document.createElement('script')
-      script.type = 'module'
-      script.src = src
-      document.body.appendChild(script)
-    }
-    function addStylesheet(href) {
-      const link = document.createElement('link')
-      link.rel = 'stylesheet'
-      link.href = href
-      document.head.appendChild(link)
-    }
-  </script>
+    <ve-content-path ref="contentSelector" :content-path="contentPath" sticky="true"></ve-content-path>
 
+    <div id="mde" @drop.prevent="drop" @dragover.prevent @dragover="overDropzone=true" @dragleave="overDropzone=false" :class="{overDropzone}">
+      <textarea v-cloak ref="content"></textarea>
+    </div>
+  
+  </div>
+  
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
-  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
-  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue-icons.min.js"></script>
-  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" type="text/javascript"></script>
-  <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>  
-  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/ScrollMagic/2.0.7/ScrollMagic.min.js" type="text/javascript"></script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/ScrollMagic/2.0.7/plugins/debug.addIndicators.min.js" type="text/javascript"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+  <script src="https://codemirror.net/5/lib/codemirror.js"></script>
   <script>
-    // jwt-decode 
-    (function(factory){typeof define==='function'&&define.amd?define(factory):factory()}((function(){'use strict';var chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";function InvalidCharacterError(message){this.message=message}
-    InvalidCharacterError.prototype=new Error();InvalidCharacterError.prototype.name="InvalidCharacterError";function polyfill(input){var str=String(input).replace(/=+$/,"");if(str.length%4==1){throw new InvalidCharacterError("'atob' failed: The string to be decoded is not correctly encoded.")}
-    for(var bc=0,bs,buffer,idx=0,output="";(buffer=str.charAt(idx++));~buffer&&((bs=bc%4?bs*64+buffer:buffer),bc++%4)?(output+=String.fromCharCode(255&(bs>>((-2*bc)&6)))):0){buffer=chars.indexOf(buffer)}
-    return output}
-    var atob=(typeof window!=="undefined"&&window.atob&&window.atob.bind(window))||polyfill;function b64DecodeUnicode(str){return decodeURIComponent(atob(str).replace(/(.)/g,function(m,p){var code=p.charCodeAt(0).toString(16).toUpperCase();if(code.length<2){code="0"+code}
-    return"%"+code}))}
-    function base64_url_decode(str){var output=str.replace(/-/g,"+").replace(/_/g,"/");switch(output.length%4){case 0:break;case 2:output+="==";break;case 3:output+="=";break;default:throw "Illegal base64url string!"}
-    try{return b64DecodeUnicode(output)}catch(err){return atob(output)}}
-    function InvalidTokenError(message){this.message=message}
-    InvalidTokenError.prototype=new Error();InvalidTokenError.prototype.name="InvalidTokenError";function jwtDecode(token,options){if(typeof token!=="string"){throw new InvalidTokenError("Invalid token specified")}
-    options=options||{};var pos=options.header===!0?0:1;try{return JSON.parse(base64_url_decode(token.split(".")[pos]))}catch(e){throw new InvalidTokenError("Invalid token specified: "+e.message)}}
-    if(window){if(typeof window.define=="function"&&window.define.amd){window.define("jwt_decode",function(){return jwtDecode})}else if(window){window.jwt_decode=jwtDecode}}})))
+    let addEl = (args) => {
+      let el = document.createElement(args.tag)
+      Object.keys(args).filter(key => key !== 'tag').forEach(key => el[key] = args[key])
+      document.getElementsByTagName(args.tag === 'script' ? 'body' : 'head')[0].appendChild(el)
+      return el
+    }
+    const isDev = window.location.hostname == 'localhost'
+    const apiEndpoint = isDev ? 'http://localhost:8000' : 'https://api.juncture-digital.org'
+    const wcEndpoint = isDev ? 'http://localhost:3333/build' : 'https://unpkg.com/visual-essays/dist/visual-essays'
+    addEl({tag: 'link', rel: 'stylesheet', type: 'text/css', href: `${wcEndpoint}/visual-essays.css`})
+    addEl({tag: 'script', type: 'module', src: `${wcEndpoint}/visual-essays.esm.js`})
   </script>
-
   <script type="module">
-  const isDev = location.host === 'localhost:5555'
-  const apiEndpoint = isDev
-    ? 'http://localhost:8000'
-    : location.hosthame === 'localhost'
-      ? 'https://api.juncture-digital.org'
-      : `https://api.${location.hostname.split('.').slice(1).join('.')}`
-  const iiifEndpoint = isDev
-    ? 'http://localhost:8088'
-    : location.hosthame === 'localhost'
-      ? 'https://iiif.juncture-digital.org'
-      : `https://iiif.${location.hostname.split('.').slice(1).join('.')}`
-  const webappHost = isDev
-    ? 'http://localhost:8080'
-    : location.hostname === 'editor.juncture-digital.org'
-      ? 'https://beta.juncture-digital.org'
-      : `https://${location.hostname.split('.').slice(1).join('.')}`
-  const authEndpoint = isDev
-    ? 'https://editor.visual-essays.net/.netlify/identity/token'
-    : `https://editor.${location.hostname.split('.').slice(1).join('.')}/.netlify/identity/token`
-  const wcDevEndpoint = 'http://localhost:3333/build'
-
-  console.log(`editor: isDev=${isDev} apiEndpoint=${apiEndpoint} iiifEndpoint=${iiifEndpoint} webappHost=${webappHost} authEndpoint=${authEndpoint}`)
-
-  import { defineCustomElements } from 'https://unpkg.com/visual-essays/loader/index.js'
-
-  const fileTitleRegex = /[a-z0-9]+[a-z0-9\-\/]*[a-z0-9]+|[a-z0-9]+/g
-
-  new Vue({
-    name: 'Visual Essays Editor',
+    
+    new Vue({
     el: '#editor',
     data: () => ({
-      fileTitle: '',
-      fileList: [],
-      simplemde: null,
+      contentPath: '',
+      ghAuthToken: null,
+      acct: null,
+      repo: null,
+      easyMDE: null,
       overDropzone: false,
-      user: null,
-      annoBase: null,
-      tokenIsRefreshing: false,
-      newFileTitleIsValid: false,
-      newFileValidationMsg: '',
-      isPreviewActive: false,
-      externalWindow: null,
-      loadedDependencies: [],
-      apiEndpoint
+      isPreviewActive: true,
+      loadedDependencies: []
     }),
     computed: {
-      isLoggedIn() { return this.user !== null && this.tokenIsValid() },
-      authToken() { return this.tokenIsValid() ? this.user.token.access_token : null },
-      userHash() { return this.user && this.hashStr(this.user?.email.toLowerCase()) },
-      // isDev() { return location.hostname === 'localhost' },
-      fileLink() { return this.fileTitle === 'default'
-        ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/`
-        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash}/${this.fileTitle.replace(/\.md\s*$/,'')}/`
-      },
-      fileLinkShort() { return this.fileTitle === 'default'
-        ? `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/`
-        : `${isDev ? 'http://localhost:8080' : webappHost}/${this.userHash.slice(0,8)}/${this.fileTitle.replace(/\.md\s*$/,'')}/`
-      },
-      isMobile() { return ('ontouchstart' in document.documentElement && /mobi/i.test(navigator.userAgent)) }
+      isLoggedIn() { return this.ghAuthToken !== null }
     },
-    async created() {
-      this.initAuth()
-      if (location.hash.length > 1) {
-        let pathElems = location.hash.slice(1).split('/').filter(pe => pe)
-        if (pathElems.length > 1) this.fileTitle = pathElems.slice(1).join('/')
-      }
+    created() {
+      this.ghAuthToken = localStorage.getItem('gh-auth-token')
+      window.addEventListener('storage', (evt) => { this.ghAuthToken = localStorage.getItem('gh-auth-token') })
     },
-    mounted() {},
+    mounted() {
+      this.$refs.contentSelector.addEventListener('contentPathChanged', async (evt) => this.parseContentPath(evt.detail))
+      this.contentPath = window.location.href.slice(window.origin.length+1).replace(/^editor\//,'')
+      this.initEditor()
+    },
     methods: {
-      hashStr(s) { return sha256(s) },
+
+      async parseContentPath(path) {
+        let [source, contentSpec] = path.split(':')
+        let [contentPath, argsStr] = contentSpec.split('?');
+        [this.acct, this.repo] = contentPath.split('/')
+        let filePath = contentPath.split('/').slice(2).join('/')
+        this.userCanUpdate = await this.$refs.contentSelector.repositoryIsWriteable()
+        if (filePath.indexOf('.md') === filePath.length-3) this.easyMDE.value((await this.$refs.contentSelector.getFile(filePath)).content)
+        console.log(`acct=${this.acct} repo=${this.repo} contentPath=${contentPath} filePath=${filePath} writeable=${this.userCanUpdate}`)
+        window.history.replaceState({}, null, `/${contentSpec}`)
+      },
+
       initEditor() {
-        this.simplemde = new SimpleMDE({
-          previewRender: this.previewRender,
-          // initialValue,
-          autosave: {
-            enabled: true,
-            delay: 10000,
-            uniqueId: this.userHash
-          },
-          hideIcons: ['side-by-side', 'fullscreen', 'preview', 'guide']
+
+        CodeMirror.defineMode('ve-tag', () => {
+          return {
+            token: function (stream, state) {
+              if (stream.match(/\.ve\-\S+/)) {
+                return 've-tag'
+                /*
+                let ch
+                while ((ch = stream.next()) != null)
+                  if (stream.next() == ' ') {
+                    // stream.eat(' ')
+                    return 've-tag'
+                  }
+                  return 've-tag'
+                */
+              } else {
+                stream.next()
+                return null
+              }
+            }
+          }
         })
+
+        this.easyMDE = new EasyMDE({
+          previewRender: this.togglePreview,
+          hideIcons: ['side-by-side', 'fullscreen', 'guide'],
+          spellChecker: false,
+          overlayMode: {
+            mode: CodeMirror.getMode({}, 've-tag'),
+            combine: false,
+          }
+        })
+        /*
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         // this.simplemde.codemirror.on('change', _.debounce(() => this.saveFile(), 10000))
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         this.fileTitle = this.fileTitle || localStorage.getItem(`${this.userHash}/file-title`) || 'default'
-      },
-
-      async isNewUser() {
-        let resp = await fetch(`${apiEndpoint}/dir/${this.userHash}/`)
-        if (resp.ok) {
-          let fileList = await resp.json()
-          return fileList.length === 0
-        }
-        return true
-      },
-
-      async addFile(title) {
-        let resp = fetch(`${apiEndpoint}/file/a3b51252/${title}/`)
-        if (resp.ok) {
-          let markdown = await resp.text()
-          await fetch(`${apiEndpoint}/file/${this.userHash}/${title}/`, {
-            method: 'POST',
-            headers: {Authorization:`Bearer ${this.authToken}`},
-            body: markdown
-          })
-        }
-      },
-
-      async createNewUserEssays() {
-        await this.addFile('default.md')
-        await this.addFile('getting-started.md')
+        */
       },
 
       copyLink() {
@@ -286,9 +158,9 @@
         window.open(this.fileLinkShort, '_blank')
       },
 
-      togglePreview() {
-        SimpleMDE.togglePreview(this.simplemde)
+      togglePreview(markdown, preview) {
         this.isPreviewActive = !this.isPreviewActive
+        return this.previewRender(markdown, preview)
       },
 
       showHelp() {
@@ -301,117 +173,28 @@
         this.externalWindow = window.open(url, '_blank', options)
       },
 
-      openFileManagerDialog() {
-        this.getDirList()
-        this.$bvModal.show('file-manager-dialog')
+      saveFile() {
+        console.log('saveFile')
       },
 
-      closeFileManagerDialog() {
-        this.$bvModal.hide('file-manager-dialog')
-      },
-
-      openNewFileDialog() {
-        this.$bvModal.show('new-file-dialog')
-      },
-
-      cancelNewFileDialog() {
-        this.$bvModal.hide('new-file-dialog')
-      },
-
-      submitNewFileDialog() {
-        let input = document.getElementById('newFileTitle')
-        this.createFile(input.value)
-        input.value = ''
-        this.$bvModal.hide('new-file-dialog')
-      },
-
-      getDirList() {
-        fetch(`${apiEndpoint}/dir/${this.userHash}/`, {
-          headers: {Authorization:`Bearer ${this.authToken}`}
-        }).then(resp => resp.json())
-        // .then(fileList => this.fileList = fileList.map(path => path.split('/').slice(1).join('/')))
-        .then(fileList => this.fileList = fileList)
-      },
-
-      createFile(path) {
-        let fileId = `${this.userHash}/${path}`
-        let extension = path.trim().split('.').pop()
-        let fileContent = extension === 'md'
-          ? `# ${path}`
-          : extension === 'css'
-            ? `/* ${path} */`
-            : ''
-        fetch(`${apiEndpoint}/file/${fileId}/`, {
-          method: 'POST',
-          headers: {Authorization:`Bearer ${this.authToken}`},
-          body: fileContent
-        })
-        .then(resp => {
-          if (resp.ok && resp.status === 200) {
-            let fileList = [...this.fileList]
-            fileList.push(path)
-            fileList.sort()
-            this.fileList = fileList
-            this.fileTitle = path
-          }
-          this.closeFileManagerDialog()
-        })
-      },
-
-      deleteFile(path) {
-        let fileId = `${this.userHash}/${path}`
-        fetch(`${apiEndpoint}/file/${fileId}/`, {
-          method: 'DELETE',
-          headers: {Authorization:`Bearer ${this.authToken}`}
-        })
-        .then(resp => resp.json())
-        .then(resp => {
-          this.fileList = this.fileList.filter(entry => entry !== path )
-          if (path == this.fileTitle) {
-            this.fileTitle = 'default.md'
-          }
-          this.closeFileManagerDialog()
-        })
-      },
-
-      selectFile(selected) {
-        this.fileTitle = selected
-        this.closeFileManagerDialog()
-      },
-
-      fileTitleValidator: _.throttle(function () {
-        let fileTitle = document.getElementById('newFileTitle').value
-        this.newFileTitleIsValid = fileTitleRegex.test(fileTitle)
-        this.newFileValidationMsg = this.newFileTitleIsValid ? ' ' : 'Invalid file title'
-      }, 100),
-
-      async getFile(createIfNotFound) {
-        let fileId = `${this.userHash}/${this.fileTitle}`
-        await this.validateToken()
-        let resp = await fetch(`${apiEndpoint}/file/${fileId}/`, {
-          headers: {Authorization:`Bearer ${this.authToken}`}
-        })
-        if (resp.status == 200) {
-          let markdown = await resp.text()
-          this.simplemde.value(markdown)
-        } else if (resp.status == 404 && createIfNotFound) {
-          this.simplemde.value(`# ${this.fileTitle.split('/').pop()}`)
-          this.saveFile()
-        }
-      },
-
-      async saveFile() {
-        if (this.fileTitle && this.isLoggedIn) {
-          let markdown = this.simplemde.value()
-          let fileId = `${this.userHash}/${this.fileTitle}`
-          localStorage.setItem(`${this.userHash}/file-title`, this.fileTitle)
-          // console.log(`saveFile: fileId=${fileId} markdown_size=${markdown.length}`)
-          await this.validateToken()
-          fetch(`${apiEndpoint}/file/${fileId}/`, {
-            method: 'POST',
-            headers: {Authorization:`Bearer ${this.authToken}`},
-            body: markdown })
-          .then(resp => resp.text())
+      previewRender(markdown, preview) {
+        if (this.isPreviewActive) {
+          this.loadedDependencies.forEach(el => el.parentElement.removeChild(el))
+          this.loadedDependencies = []
+        } else {
+          let body = {'prefix': `${this.acct}/${this.repo}`, 'markdown': markdown}
+          fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: JSON.stringify(body)})
+            .then(resp => resp.text())
+            .then(html => {
+              let htmlEls = new DOMParser().parseFromString(html, 'text/html').children[0].children
+              let head = htmlEls[0]
+              let body = htmlEls[1]
+              // Array.from(body.querySelectorAll('ve-image')).forEach(veImg => veImg.setAttribute('auth-token', this.authToken))
+              preview.innerHTML = body.innerHTML
+              this.loadDependencies(head.querySelectorAll('link[rel="stylesheet"]'), 0, () => this.loadDependencies(head.querySelectorAll('style'), 0, null))
+              this.loadDependencies(body.querySelectorAll('script'), 0, null)
+            })
+          return ''
         }
       },
 
@@ -423,8 +206,29 @@
           })
         }
       },
+  
+      loadNew(srcEl, callback) {
+        if (srcEl.localName  === 'link') {
+          let e = addEl({tag: 'link', rel: srcEl.rel, type: 'text/css',  href: srcEl.href.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcEndpoint)})
+          e.addEventListener('load', callback)
+          this.loadedDependencies.push(e)
+        } else if (srcEl.localName  === 'style') {
+          let e = addEl({tag: 'style', type: 'text/css', textContent: srcEl.textContent})
+          e.addEventListener('load', callback)
+          this.loadedDependencies.push(e)
+        } else if (srcEl.localName  === 'script') {
+          let elArgs = {tag: 'script'}
+          if (srcEl.type) elArgs.type = srcEl.type
+          if (srcEl.src) elArgs.src = srcEl.src.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcEndpoint)
+          else elArgs.text = srcEl.text
+          let e = addEl(elArgs)
+          this.loadedDependencies.push(e)
+          if (!e.src) callback()
+        }
+      },
 
       load(srcEl, callback) {
+        const wcDevEndpoint = 'http://localhost:3333/build'
         let e
         if (srcEl.localName  === 'link') {
           e = document.createElement('link')
@@ -460,168 +264,12 @@
         }
       },
 
-      previewRender(markdown, preview) {
-        if (this.isPreviewActive) {
-          this.loadedDependencies.forEach(el => el.parentElement.removeChild(el))
-          this.loadedDependencies = []
-        } else {
-          let body = {'prefix': this.userHash, 'markdown': markdown}
-          fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: JSON.stringify(body)})
-            .then(resp => resp.text())
-            .then(html => {
-              let [head, body] = new DOMParser().parseFromString(html, 'text/html').children[0].children
-              Array.from(body.querySelectorAll('ve-image')).forEach(veImg => veImg.setAttribute('auth-token', this.authToken))
-              preview.innerHTML = body.innerHTML
-              this.loadDependencies(head.querySelectorAll('link[rel="stylesheet"]'), 0, () => this.loadDependencies(head.querySelectorAll('style'), 0))
-              this.loadDependencies(body.querySelectorAll('script'), 0)
-            })
-          return ''
-        }
-      },
-
-      insertAtCursor(pos, text) {
-        let priorLine = this.simplemde.codemirror.getRange({line:pos.line-2, char:0}, pos).trim().split(/\s/)
-        if (priorLine.length > 0 && priorLine[0] === '.ve-image') {
-          let merged = '.ve-image\n'
-          merged += `    - ${priorLine.slice(1).join(' ')}\n`
-          merged += `    - ${text.split(/\s/).slice(1).join(' ')}\n`
-          this.simplemde.codemirror.setSelection({line:pos.line-1,ch:0}, {line:pos.line})
-          this.simplemde.codemirror.replaceSelection(merged)
-        } else {
-          pos.ch = 0
-          this.simplemde.codemirror.setSelection(pos, pos)
-          this.simplemde.codemirror.replaceSelection(text)
-        }
-      },
-
-      async getManifestUrl(imageUrl) {
-        let resp = await fetch(`${isDev ? 'http://localhost:8088' : iiifEndpoint}/?url=${encodeURIComponent(imageUrl)}`)
-        return await resp.text()
-      },
-
-      drop(e) {
-        let cursorPos = this.simplemde.codemirror.coordsChar({left:e.pageX, top:e.pageY})
-        let inputText = ''
-        if (e.dataTransfer) inputText = decodeURI(e.dataTransfer.getData('Text') || e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list'))
-        if (inputText && isURL(inputText)) {
-          let url = inputText
-          let parsed = new URL(url)
-          let manifestUrl = parsed.searchParams.get('manifest')
-          if (manifestUrl) {
-            let imageId = manifestUrl.indexOf(iiifEndpoint) > 0 && manifestUrl.indexOf('manifest.json') > 0
-              ? manifestUrl.split('/').slice(-2,-1).pop()
-              : manifestUrl
-              this.insertAtCursor(cursorPos, `.ve-image ${decodeURIComponent(imageId)}\n`)
-          } else {
-            this.getManifestUrl(url).then((manifestUrl) => {
-              let imageId = manifestUrl.split('/').slice(3,-1).join('/')
-              // this.insertAtCursor(cursorPos, `.ve-image ${decodeURIComponent(imageId)}\n`)
-              if (cursorPos.line === 0) {
-                this.insertAtCursor(cursorPos, `.ve-header "File Title" ${imageId}\n`)
-              } else {
-                this.insertAtCursor(cursorPos, `.ve-image ${imageId}\n`)
-              }
-            })
-          }
-        }
-      },
-
-      initAuth() {
-        netlifyIdentity.on('init', (user) => this.user = user)
-        netlifyIdentity.on('login', async (user) => {
-          location.hash = `#/${this.hashStr(user.email.toLowerCase())}/${this.fileTitle}`
-          this.user = user
-          netlifyIdentity.close()
-        })
-        netlifyIdentity.on('open', (e) => {
-          if (e === 'user') {
-            this.saveFile().then(resp => {
-              this.logout()
-            })
-          }
-        })
-      },
-
-      tokenIsValid(token) {
-        return this.user && this.user.token ? this.user.token.expires_at > Date.now() : false
-      },
-      
-      async validateToken() {
-        let timeRemaining = this.user ? this.user.token.expires_at - Date.now() : 0
-        // console.log(`validateToken: timeRemaining=${timeRemaining} isValid=${timeRemaining > 0}`)
-        if (this.user && timeRemaining < 300 * 1000) this.refreshToken() // refresh token before expiration
-      },
-
-      refreshToken() {
-        // console.log(`refreshToken: tokenIsRefreshing=${this.tokenIsRefreshing}`)
-        if (!this.tokenIsRefreshing) {
-          this.tokenIsRefreshing = true
-          const formData = new FormData()
-          formData.append('grant_type', 'refresh_token')
-          formData.append('refresh_token', this.user.token.refresh_token)
-          fetch(authEndpoint, {
-              method : 'POST',
-              body : formData
-          }).then(x=>x.json()).then(newToken => {
-            this.user.token.access_token=newToken.access_token
-            this.user.token.refresh_token=newToken.refresh_token
-            this.user.token.expires_at = jwt_decode(newToken.access_token).exp * 1000
-            localStorage.setItem('gotrue.user', JSON.stringify(this.user))
-            console.log('auth token refreshed')
-          })
-          .catch(err => {
-            console.log('Token refresh failed', err, `refresh_token=${this.user.token.refresh_token}`)
-            this.logout()
-          })
-          this.tokenIsRefreshing = false
-        }
-      },
-
-      logout() {
-        netlifyIdentity.logout()
-        localStorage.removeItem('gotrue.user')
-        this.user = null
-        netlifyIdentity.close()
-        this.simplemde.toTextArea()
-        this.simplemde = null
-        location.href = '/'
-      }
-    
     },
-    watch: {
-      isLoggedIn(isLoggedIn) {
-        // console.log(`isLoggedIn=${isLoggedIn} file=${this.fileTitle}`)
-        if (isLoggedIn && !this.simplemde) this.$nextTick(() => this.initEditor())
-      },
-      async user() {
-        this.validateToken()
-        if (this.user) {
-          let isNewUser = await this.isNewUser()
-          // console.log(`user=${this.userHash.slice(0,8)} isNewUser=${isNewUser}`)
-          if (isNewUser) {
-            this.createNewUserEssays()
-            this.fileTitle = 'getting-started'
-          }
-          this.getFile(true)
-        }
-      },
-      fileTitle(fileTitle, prior) {
-        if (this.userHash && fileTitle) {
-          location.hash = `#/${this.userHash}/${fileTitle}`
-          this.getFile(true)
-          if (this.simplemde.isPreviewActive()) this.togglePreview()
-        }
-      },
-      isPreviewActive(isActive) {
-        if (isActive) this.$refs.main.classList.add('preview')
-        else this.$refs.main.classList.remove('preview')
-      }
-    }
+    watch: {}
   })
   Vue.config.productionTip = false
   Vue.config.devtools = true
 
-  function isURL(str) { return /^https*:\/\//.test(str) }
   </script>
 
 </body>
