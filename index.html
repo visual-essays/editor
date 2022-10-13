@@ -73,6 +73,7 @@
     const wcEndpoint = isDev ? 'http://localhost:3333/build' : 'https://unpkg.com/visual-essays/dist/visual-essays'
     addEl({tag: 'link', rel: 'stylesheet', type: 'text/css', href: `${wcEndpoint}/visual-essays.css`})
     addEl({tag: 'script', type: 'module', src: `${wcEndpoint}/visual-essays.esm.js`})
+    console.log(`editor: hostname=${window.location.hostname} isDev=${isDev} apiEndpoint=${apiEndpoint} wcEndpoint=${wcEndpoint}`)
   </script>
   <script type="module">
     
@@ -85,7 +86,7 @@
       repo: null,
       easyMDE: null,
       overDropzone: false,
-      isPreviewActive: true,
+      isPreviewActive: false,
       loadedDependencies: []
     }),
     computed: {
@@ -108,8 +109,11 @@
         [this.acct, this.repo] = contentPath.split('/')
         let filePath = contentPath.split('/').slice(2).join('/')
         this.userCanUpdate = await this.$refs.contentSelector.repositoryIsWriteable()
-        if (filePath.indexOf('.md') === filePath.length-3) this.easyMDE.value((await this.$refs.contentSelector.getFile(filePath)).content)
         console.log(`acct=${this.acct} repo=${this.repo} contentPath=${contentPath} filePath=${filePath} writeable=${this.userCanUpdate}`)
+        if (filePath.indexOf('.md') === filePath.length-3) {
+          if (this.isPreviewActive) EasyMDE.togglePreview(this.easyMDE)
+          this.easyMDE.value((await this.$refs.contentSelector.getFile(filePath)).content)
+        }
         window.history.replaceState({}, null, `/${contentSpec}`)
       },
 
@@ -166,11 +170,6 @@
         window.open(this.fileLinkShort, '_blank')
       },
 
-      togglePreview(markdown, preview) {
-        this.isPreviewActive = !this.isPreviewActive
-        return this.previewRender(markdown, preview)
-      },
-
       showHelp() {
         this.openWindow(`${webappHost}/a3b5125/help/`, `toolbar=no,location=no,left=0,top=0,width=800,height=800,scrollbars=no,status=no`)
       },
@@ -185,11 +184,14 @@
         console.log('saveFile')
       },
 
-      previewRender(markdown, preview) {
+      togglePreview(markdown, preview) {
+        console.log(`previewRender: isPreviewActive=${this.isPreviewActive} ${this.easyMDE.isPreviewActive()}`)
         if (this.isPreviewActive) {
+          this.isPreviewActive = false
           this.loadedDependencies.forEach(el => el.parentElement.removeChild(el))
           this.loadedDependencies = []
         } else {
+          this.isPreviewActive = true
           let body = {'prefix': `${this.acct}/${this.repo}`, 'markdown': markdown}
           fetch(`${apiEndpoint}/html/?inline=true`, {method: 'POST', body: JSON.stringify(body)})
             .then(resp => resp.text())
@@ -215,13 +217,14 @@
         }
       },
   
-      loadNew(srcEl, callback) {
+      load(srcEl, callback) {
+        let e
         if (srcEl.localName  === 'link') {
-          let e = addEl({tag: 'link', rel: srcEl.rel, type: 'text/css',  href: srcEl.href.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcEndpoint)})
+          e = addEl({tag: 'link', rel: srcEl.rel, type: 'text/css',  href: srcEl.href.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcEndpoint)})
           e.addEventListener('load', callback)
           this.loadedDependencies.push(e)
         } else if (srcEl.localName  === 'style') {
-          let e = addEl({tag: 'style', type: 'text/css', textContent: srcEl.textContent})
+          e = addEl({tag: 'style', type: 'text/css', textContent: srcEl.textContent})
           e.addEventListener('load', callback)
           this.loadedDependencies.push(e)
         } else if (srcEl.localName  === 'script') {
@@ -229,48 +232,12 @@
           if (srcEl.type) elArgs.type = srcEl.type
           if (srcEl.src) elArgs.src = srcEl.src.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcEndpoint)
           else elArgs.text = srcEl.text
-          let e = addEl(elArgs)
+          e = addEl(elArgs)
           this.loadedDependencies.push(e)
-          if (!e.src) callback()
+          if (e.src) e.addEventListener('load', callback)
+          else callback()
         }
-      },
-
-      load(srcEl, callback) {
-        const wcDevEndpoint = 'http://localhost:3333/build'
-        let e
-        if (srcEl.localName  === 'link') {
-          e = document.createElement('link')
-          e.href = isDev
-            ? srcEl.href.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcDevEndpoint)
-            : srcEl.href
-          e.rel = srcEl.rel
-          e.type = 'text/css'
-          e.addEventListener('load', callback)
-          this.loadedDependencies.push(e)
-          document.getElementsByTagName('head')[0].appendChild(e)
-        } else if (srcEl.localName  === 'style') {
-          e = document.createElement('style')
-          e.textContent = srcEl.textContent
-          e.addEventListener('load', callback)
-          this.loadedDependencies.push(e)
-          document.getElementsByTagName('head')[0].appendChild(e)
-        } else if (srcEl.localName  === 'script') {
-          e = document.createElement('script')
-          if (srcEl.src) {
-            e.src = isDev
-              ? srcEl.src.replace(/https:\/\/unpkg\.com\/visual-essays\/dist\/visual-essays/, wcDevEndpoint)
-              : srcEl.src
-            if (srcEl.type) e.type = srcEl.type
-            e.addEventListener('load', callback)
-          } else {
-            if (srcEl.type) e.type = srcEl.type
-            e.text = srcEl.text
-          }
-          this.loadedDependencies.push(e)
-          document.getElementsByTagName('body')[0].appendChild(e)
-          if (!e.src) callback()
-        }
-      },
+      }
 
     },
     watch: {}
