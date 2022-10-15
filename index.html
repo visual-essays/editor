@@ -15,18 +15,20 @@
     #editor {display:grid; grid-template-rows: auto auto 1fr; height: 100vh;}
     #mde {font-family:Roboto,sans-serif; height:100%; overflow-y: hidden;}
     .EasyMDEContainer {height:calc(100%);}
-    .EasyMDEContainer .CodeMirror {height:calc(100% - 75px);}
+    .EasyMDEContainer .CodeMirror {height:calc(100% - 75px); font-size:1.2rem; line-height:1.4; color:#444;}
     .preview .EasyMDEContainer .CodeMirror {height:calc(100% - 60px);}
     .editor-preview {padding:0; background-color:white;}
     .preview .editor-statusbar {display:none;}
     .cm-ve-tag {color:red;}
+    #mde .fa {font-size:1.2rem}
   </style>
 </head>
 <body>
 
-  <div v-cloak id="editor">
+  <div id="editor">
   
     <ve-header
+      v-cloak
       background="#5B152E"
       logo="https://raw.githubusercontent.com/visual-essays/media/main/images/Juncture_Logo.png"
       contact="Ron.Snyder@ithaka.org"
@@ -41,7 +43,7 @@
       </ul>
     </ve-header>
 
-    <ve-content-path ref="contentSelector" :content-path="contentPath" sticky="true"></ve-content-path>
+    <ve-content-path ref="contentSelector" :content-path="contentPath" mode="essays" sticky="true"></ve-content-path>
 
     <div id="mde" @drop.prevent="drop" @dragover.prevent @dragover="overDropzone=true" @dragleave="overDropzone=false" :class="{overDropzone}">
       <textarea v-cloak ref="content"></textarea>
@@ -81,16 +83,19 @@
     el: '#editor',
     data: () => ({
       contentPath: '',
+      pathRoot: '/',
       ghAuthToken: null,
       acct: null,
       repo: null,
       easyMDE: null,
       overDropzone: false,
       isPreviewActive: false,
-      loadedDependencies: []
+      loadedDependencies: [],
+      userCanUpdate: false
     }),
     computed: {
-      isLoggedIn() { return this.ghAuthToken !== null }
+      isLoggedIn() { return this.ghAuthToken !== null },
+      link() { return `https://beta.juncture-digital.org/${this.contentPath.replace(/\/README\.md/,'')}` }
     },
     created() {
       this.ghAuthToken = localStorage.getItem('gh-auth-token')
@@ -98,7 +103,12 @@
     },
     mounted() {
       this.$refs.contentSelector.addEventListener('contentPathChanged', async (evt) => this.parseContentPath(evt.detail))
-      this.contentPath = window.location.href.slice(window.origin.length+1).replace(/^editor\//,'')
+      let pathElems = window.location.href.slice(window.origin.length+1).split('/').filter(pe => pe)
+      if (pathElems.length > 0 && pathElems[0] === 'editor') {
+        this.pathRoot = '/editor/'
+        pathElems = pathElems.slice(1)
+      } 
+      this.contentPath = pathElems.join('/')
       this.initEditor()
     },
     methods: {
@@ -109,12 +119,16 @@
         [this.acct, this.repo] = contentPath.split('/')
         let filePath = contentPath.split('/').slice(2).join('/')
         this.userCanUpdate = await this.$refs.contentSelector.repositoryIsWriteable()
+        document.getElementById('save').style.display = this.userCanUpdate ? 'inline-block' : 'none'
         console.log(`acct=${this.acct} repo=${this.repo} contentPath=${contentPath} filePath=${filePath} writeable=${this.userCanUpdate}`)
         if (filePath.indexOf('.md') === filePath.length-3) {
           if (this.isPreviewActive) EasyMDE.togglePreview(this.easyMDE)
           this.easyMDE.value((await this.$refs.contentSelector.getFile(filePath)).content)
+        } else {
+          this.easyMDE.value('')
         }
-        window.history.replaceState({}, null, `/${contentSpec}`)
+        this.contentPath = contentPath
+        window.history.replaceState({}, null, `${this.pathRoot}${contentSpec}`)
       },
 
       initEditor() {
@@ -148,8 +162,25 @@
           overlayMode: {
             mode: CodeMirror.getMode({}, 've-tag'),
             combine: false,
-          }
+          },
+          toolbar: ['undo', 'redo', '|', 'bold', 'italic', 'heading', 'quote', 'unordered-list', 'ordered-list', 'link', '|', 'preview',
+            {
+              class: 'save',
+              action: () => {this.saveFile()},
+              className: 'fa fa-save',
+              title: 'Save file',
+              attributes: {id: 'save'}
+            },
+            {
+              class: 'launch',
+              action: () => {this.launch()},
+              className: 'fa fa-external-link',
+              title: 'Launch',
+              attributes: {id: 'launch'}
+            }
+          ]
         })
+        document.getElementById('save').style.display = this.userCanUpdate ? 'block' : 'none'
         /*
         this.simplemde.codemirror.on('drop', (_, evt) => evt.preventDefault())
         // this.simplemde.codemirror.on('change', _.debounce(() => this.saveFile(), 10000))
@@ -167,7 +198,7 @@
       },
 
       launch() {
-        window.open(this.fileLinkShort, '_blank')
+        window.open(this.link, '_blank')
       },
 
       showHelp() {
@@ -182,6 +213,8 @@
 
       saveFile() {
         console.log('saveFile')
+        let markdown = this.easyMDE.value()
+        this.$refs.contentSelector.putFile(markdown)
       },
 
       togglePreview(markdown, preview) {
